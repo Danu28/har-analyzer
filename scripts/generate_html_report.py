@@ -527,13 +527,12 @@ class HARHtmlReportGenerator:
         if third_party_data:
             total_domains = third_party_data.get('total_third_party_domains', 0)
             blocking_domains = third_party_data.get('blocking_third_parties', [])
-            
+
             category_rows = []
             for category, stats in third_party_data.get('category_breakdown', {}).items():
                 domains = stats.get('domains', 0)
                 requests = stats.get('requests', 0)
                 total_time = stats.get('total_time', 0)
-                
                 category_rows.append(f"""
                 <tr>
                     <td>{category.title()}</td>
@@ -542,7 +541,51 @@ class HARHtmlReportGenerator:
                     <td>{total_time:.0f} ms</td>
                 </tr>
                 """)
-            
+
+            # Add blocking domains table if any
+            blocking_table_html = ""
+            if blocking_domains:
+                domain_impact = third_party_data.get('domain_impact', {})
+                table_rows = []
+                for domain in blocking_domains:
+                    stats = domain_impact.get(domain, {})
+                    blocking_time = stats.get('blocking_time', 0)
+                    requests = stats.get('requests', 0)
+                    table_rows.append(f"<tr><td>{domain}</td><td>{blocking_time:.0f} ms</td><td>{requests}</td></tr>")
+                blocking_table_html = f"""
+                    <table class='data-table' style='margin-top:8px;'>
+                        <thead>
+                            <tr><th>Domain</th><th>Blocking Time</th><th>Requests</th></tr>
+                        </thead>
+                        <tbody>
+                            {''.join(table_rows)}
+                        </tbody>
+                    </table>
+                """
+
+            # Third-party domains table (all domains)
+            # Show category breakdown table (Category, Domains, Requests, Total Time)
+            category_table_html = ""
+            category_breakdown = third_party_data.get('category_breakdown', {})
+            if category_breakdown:
+                cat_rows = []
+                for category, stats in category_breakdown.items():
+                    domains = stats.get('domains', 0)
+                    requests = stats.get('requests', 0)
+                    total_time = stats.get('total_time', 0)
+                    cat_rows.append(f"<tr><td>{category.title()}</td><td>{domains}</td><td>{requests}</td><td>{total_time:.0f} ms</td></tr>")
+                category_table_html = f"""
+                    <table class='data-table' style='margin-top:8px;'>
+                        <thead>
+                            <tr><th>Category</th><th>Domains</th><th>Requests</th><th>Total Time</th></tr>
+                        </thead>
+                        <tbody>
+                            {''.join(cat_rows)}
+                        </tbody>
+                    </table>
+                """
+            all_domains_table_html = category_table_html
+
             third_party_html = f"""
             <div class="section">
                 <div class="section-header">
@@ -551,15 +594,21 @@ class HARHtmlReportGenerator:
                 </div>
                 <div class="section-content">
                     <div class="metric-grid">
-                        <div class="metric-card">
-                            <div class="metric-value info">{total_domains}</div>
-                            <div class="metric-label">Third-Party Domains</div>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-value {'critical' if len(blocking_domains) > 0 else 'success'}">{len(blocking_domains)}</div>
-                            <div class="metric-label">Blocking Services</div>
-                        </div>
+            <div class="metric-card" id="thirdparty-metric-card" style="cursor:pointer;">
+                <div class="metric-value info">{total_domains}</div>
+                <div class="metric-label">Third-Party Domains</div>
+            </div>
+            <div class="metric-card" id="blocking-metric-card" style="cursor:pointer;">
+                <div class="metric-value {'critical' if len(blocking_domains) > 0 else 'success'}">{len(blocking_domains)}</div>
+                <div class="metric-label">Blocking Services</div>
+            </div>
                     </div>
+            <div id="thirdparty-table-container" style="margin-top:10px; display:none;">
+                {all_domains_table_html}
+            </div>
+            <div id="blocking-table-container" style="margin-top:10px; display:none;">
+                {blocking_table_html}
+            </div>
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -575,6 +624,30 @@ class HARHtmlReportGenerator:
                     </table>
                 </div>
             </div>
+            <script>
+            document.addEventListener('DOMContentLoaded', function() {{
+                var blockingCard = document.getElementById('blocking-metric-card');
+                var blockingTable = document.getElementById('blocking-table-container');
+                var thirdPartyCard = document.getElementById('thirdparty-metric-card');
+                var thirdPartyTable = document.getElementById('thirdparty-table-container');
+                function hideAllTables() {{
+                    if (blockingTable) blockingTable.style.display = 'none';
+                    if (thirdPartyTable) thirdPartyTable.style.display = 'none';
+                }}
+                if (blockingCard && blockingTable) {{
+                    blockingCard.addEventListener('click', function() {{
+                        hideAllTables();
+                        blockingTable.style.display = 'block';
+                    }});
+                }}
+                if (thirdPartyCard && thirdPartyTable) {{
+                    thirdPartyCard.addEventListener('click', function() {{
+                        hideAllTables();
+                        thirdPartyTable.style.display = 'block';
+                    }});
+                }}
+            }});
+            </script>
             """
         
         return compression_html + caching_html + dns_html + third_party_html

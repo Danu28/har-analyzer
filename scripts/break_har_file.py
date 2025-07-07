@@ -106,7 +106,8 @@ def main(har_file=None, output_dir=None):
             "size": entry["response"]["content"].get("size", 0),
             "time": entry["time"],
             "startedDateTime": entry["startedDateTime"],
-            "resourceType": entry.get("_resourceType", "unknown")
+            "resourceType": entry.get("_resourceType", "unknown"),
+            "timings": entry.get("timings", {})  # Include timings for DNS/SSL analysis
         })
     summary_data = {
         "totalEntries": len(summary),
