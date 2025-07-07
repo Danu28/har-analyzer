@@ -198,6 +198,57 @@ class HARHtmlReportGenerator:
         largest_assets = agent_data.get('largest_assets', [])
         slowest_requests = agent_data.get('slowest_requests', [])
         failed_requests = agent_data.get('failed_requests', [])
+
+        # Get all requests for summary stats
+        summary_data = self.report_data.get('summary', {})
+        all_requests = summary_data.get('requests', [])
+
+        # Build rows for interactive summary tables
+        # Collect very slow requests for scaling
+        very_slow_collected = []
+        for req in all_requests:
+            url = req.get('url', 'N/A')
+            time_ms = req.get('time', 0)
+            status = req.get('status', 'N/A')
+            if time_ms > 3000:
+                very_slow_collected.append((time_ms, url))
+        max_vs_time = max([t for t, _ in very_slow_collected], default=1)
+        very_slow_requests_rows = []
+        slow_requests_rows = []
+        failed_requests_rows = []
+        for req in all_requests:
+            url = req.get('url', 'N/A')
+            time_ms = req.get('time', 0)
+            status = req.get('status', 'N/A')
+            # Very slow: > 3000ms
+            if time_ms > 3000:
+                bar_width = min(time_ms / max_vs_time * 200, 200)
+                very_slow_requests_rows.append(f"""
+                <tr>
+                    <td class='url-cell' title='{url}'>{url[:50]}...</td>
+                    <td>{time_ms:.0f} ms</td>
+                    <td><div class='size-bar' style='width: {bar_width:.0f}px; background: linear-gradient(90deg, #e74c3c, #c0392b);'></div></td>
+                </tr>
+                """)
+            # Slow: > 1000ms and <= 3000ms
+            elif time_ms > 1000:
+                slow_requests_rows.append(f"""
+                <tr>
+                    <td class='url-cell' title='{url}'>{url[:50]}...</td>
+                    <td>{time_ms:.0f} ms</td>
+                    <td><div class='size-bar' style='width: {min(time_ms/3000*200, 200):.0f}px; background: linear-gradient(90deg, #f39c12, #f1c40f);'></div></td>
+                </tr>
+                """)
+            # Failed: status >= 400
+            if isinstance(status, int) and status >= 400:
+                status_class = f"status-{str(status)[0]}xx"
+                failed_requests_rows.append(f"""
+                <tr>
+                    <td class='url-cell' title='{url}'>{url[:50]}...</td>
+                    <td><span class='status-badge {status_class}'>{status}</span></td>
+                    <td><div class='size-bar' style='width: 40px; background: #e74c3c;'></div></td>
+                </tr>
+                """)
         
         # Helper function to get performance class
         def get_perf_class(value, thresholds):
@@ -309,7 +360,10 @@ class HARHtmlReportGenerator:
             slowest_requests_rows=slowest_requests_rows,
             failed_requests_html=failed_requests_html,
             largest_assets=largest_assets,
-            enhanced_analysis_html=enhanced_analysis_html
+            enhanced_analysis_html=enhanced_analysis_html,
+            very_slow_requests_rows=very_slow_requests_rows,
+            slow_requests_rows=slow_requests_rows,
+            failed_requests_rows=failed_requests_rows
         )
         
         # Write HTML file
@@ -625,6 +679,41 @@ class HARHtmlReportGenerator:
                 </div>
             </div>
             <script>
+        // Add sorting to summary tables
+        // Sorting helper for summary tables
+        function makeTableSortable(tableId) {{
+            var table = document.getElementById(tableId);
+            if (!table) return;
+            var ths = table.querySelectorAll('th');
+            ths.forEach(function(th, colIdx) {{
+                th.style.cursor = 'pointer';
+                th.addEventListener('click', function() {{
+                    var tbody = table.querySelector('tbody');
+                    var rows = Array.from(tbody.querySelectorAll('tr'));
+                    var isAsc = th.classList.contains('sort-asc');
+                    ths.forEach(function(h) {{ h.classList.remove('sort-asc', 'sort-desc'); }});
+                    th.classList.add(isAsc ? 'sort-desc' : 'sort-asc');
+                    rows.sort(function(a, b) {{
+                        var aText = a.children[colIdx].innerText.trim();
+                        var bText = b.children[colIdx].innerText.trim();
+                        var aNum = parseFloat(aText.replace(/[^\d.\-]/g, ''));
+                        var bNum = parseFloat(bText.replace(/[^\d.\-]/g, ''));
+                        if (!isNaN(aNum) && !isNaN(bNum)) {{
+                            return isAsc ? aNum - bNum : bNum - aNum;
+                        }}
+                        return isAsc ? aText.localeCompare(bText) : bText.localeCompare(aText);
+                    }});
+                    rows.forEach(function(row) {{ tbody.appendChild(row); }});
+                }});
+            }});
+        }}
+        // Make all summary tables sortable
+        document.addEventListener('DOMContentLoaded', function() {{
+            makeTableSortable('very-slow-table');
+            makeTableSortable('slow-table');
+            makeTableSortable('failed-table');
+            makeTableSortable('assets-table');
+        }});
             document.addEventListener('DOMContentLoaded', function() {{
                 var blockingCard = document.getElementById('blocking-metric-card');
                 var blockingTable = document.getElementById('blocking-table-container');
@@ -987,7 +1076,7 @@ class HARHtmlReportGenerator:
         
         {kwargs['failed_requests_html']}
         
-        <!-- Summary Stats -->
+        <!-- Summary Stats (Interactive) -->
         <div class="section">
             <div class="section-header">
                 <h2>📈 Summary Statistics</h2>
@@ -995,25 +1084,91 @@ class HARHtmlReportGenerator:
             </div>
             <div class="section-content">
                 <div class="metric-grid">
-                    <div class="metric-card">
+                    <div class="metric-card" id="very-slow-card" style="cursor:pointer;">
                         <div class="metric-value info">{kwargs['critical_issues'].get('very_slow_requests', 0)}</div>
-                        <div class="metric-label">Very Slow Requests (>3s)</div>
+                        <div class="metric-label">Very Slow Requests (&gt;3s)</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" id="slow-card" style="cursor:pointer;">
                         <div class="metric-value warning">{kwargs['critical_issues'].get('slow_requests', 0)}</div>
-                        <div class="metric-label">Slow Requests (>1s)</div>
+                        <div class="metric-label">Slow Requests (&gt;1s)</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" id="failed-card" style="cursor:pointer;">
                         <div class="metric-value critical">{kwargs['critical_issues'].get('failed_requests', 0)}</div>
                         <div class="metric-label">Failed Requests</div>
                     </div>
-                    <div class="metric-card">
+                    <div class="metric-card" id="assets-card" style="cursor:pointer;">
                         <div class="metric-value info">{len(kwargs['largest_assets'])}</div>
                         <div class="metric-label">Assets Analyzed</div>
                     </div>
                 </div>
+                <div id="very-slow-table-container" style="margin-top:10px; display:none;">
+                    <table class="data-table" id="very-slow-table">
+                        <thead>
+                            <tr><th>Request</th><th>Time</th><th>Visual</th></tr>
+                        </thead>
+                        <tbody>
+                            {''.join(kwargs.get('very_slow_requests_rows', []))}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="slow-table-container" style="margin-top:10px; display:none;">
+                    <table class="data-table" id="slow-table">
+                        <thead>
+                            <tr><th>Request</th><th>Time</th><th>Visual</th></tr>
+                        </thead>
+                        <tbody>
+                            {''.join(kwargs.get('slow_requests_rows', []))}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="failed-table-container" style="margin-top:10px; display:none;">
+                    <table class="data-table" id="failed-table">
+                        <thead>
+                            <tr><th>Request</th><th>Status</th><th>Visual</th></tr>
+                        </thead>
+                        <tbody>
+                            {''.join(kwargs.get('failed_requests_rows', []))}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="assets-table-container" style="margin-top:10px; display:none;">
+                    <table class="data-table" id="assets-table">
+                        <thead>
+                            <tr><th>Asset</th><th>Size</th><th>Visual</th></tr>
+                        </thead>
+                        <tbody>
+                            {''.join(kwargs.get('largest_assets_rows', []))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            function hideAllSummaryTables() {{
+                document.getElementById('very-slow-table-container').style.display = 'none';
+                document.getElementById('slow-table-container').style.display = 'none';
+                document.getElementById('failed-table-container').style.display = 'none';
+                document.getElementById('assets-table-container').style.display = 'none';
+            }}
+            document.getElementById('very-slow-card').addEventListener('click', function() {{
+                hideAllSummaryTables();
+                document.getElementById('very-slow-table-container').style.display = 'block';
+            }});
+            document.getElementById('slow-card').addEventListener('click', function() {{
+                hideAllSummaryTables();
+                document.getElementById('slow-table-container').style.display = 'block';
+            }});
+            document.getElementById('failed-card').addEventListener('click', function() {{
+                hideAllSummaryTables();
+                document.getElementById('failed-table-container').style.display = 'block';
+            }});
+            document.getElementById('assets-card').addEventListener('click', function() {{
+                hideAllSummaryTables();
+                document.getElementById('assets-table-container').style.display = 'block';
+            }});
+        }});
+        </script>
         
         <!-- Enhanced Analysis Sections -->
         {kwargs['enhanced_analysis_html']}
