@@ -172,6 +172,11 @@ def move_report_to_reports_folder(har_base_name, reports_dir):
         new_report_name = f"{har_base_name}.html"
         new_report_path = reports_dir / new_report_name
         
+        # Remove existing report if it exists
+        if new_report_path.exists():
+            new_report_path.unlink()
+            print_info(f"Removed existing report: {new_report_path}")
+        
         # Move and rename the report
         current_report.rename(new_report_path)
         print_success(f"Report saved as: {new_report_path}")
