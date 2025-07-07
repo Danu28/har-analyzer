@@ -65,7 +65,7 @@ def main(har_file=None, input_dir=None):
     print_info(f"Using input directory: {input_dir}")
     if not os.path.isdir(input_dir):
         print_error(f"Input directory '{input_dir}' not found!")
-        print_warn("Run the HAR breakdown script first: break_har_file.ps1")
+        print_warn("Run the HAR breakdown script first: break_har_file.py")
         sys.exit(1)
     # Load summary and header
     try:
@@ -91,7 +91,7 @@ def main(har_file=None, input_dir=None):
     reqs = summary['requests']
     fast = [r for r in reqs if r['time'] < 200]
     medium = [r for r in reqs if 200 <= r['time'] < 500]
-    slow = [r for r in reqs if 500 <= r['time'] < 1000]
+    slow = [r for r in reqs if r['time'] >= 500]
     very_slow = [r for r in reqs if r['time'] >= 1000]
     def pct(n):
         return round(n/total_entries*100, 1) if total_entries else 0
@@ -194,13 +194,64 @@ def main(har_file=None, input_dir=None):
     if tp_analysis:
         slowest_tp = tp_analysis[0]
         print_warn(f"Third-party service '{slowest_tp[0]}' is impacting performance. Consider optimization.")
+    
+    # --- PHASE 1 ENHANCEMENTS ---
+    print("\n[COMPRESSION] COMPRESSION ANALYSIS\n-----------------------------")
+    compression_analysis = analyze_compression(reqs)
+    if compression_analysis['compression_opportunity_count'] > 0:
+        print_error(f"Found {compression_analysis['compression_opportunity_count']} uncompressed text resources")
+        print_warn(f"Potential savings: {compression_analysis['total_potential_savings_kb']}KB")
+        print("Top uncompressed resources:")
+        for resource in compression_analysis['uncompressed_resources'][:5]:
+            print(f"  - {resource['url'][:60]} ({round(resource['size']/1024, 1)}KB)")
+    else:
+        print_ok("Good compression usage detected!")
+    
+    print("\n[CACHING] CACHE ANALYSIS\n-----------------------")
+    cache_analysis = analyze_caching(reqs)
+    if cache_analysis['cache_optimization_count'] > 0:
+        print_error(f"Found {len(cache_analysis['no_cache_resources'])} resources without cache headers")
+        print_warn(f"Found {len(cache_analysis['short_cache_resources'])} resources with short cache duration")
+        print("Resources needing cache optimization:")
+        for resource in cache_analysis['no_cache_resources'][:3]:
+            print(f"  - {resource['url'][:60]} ({resource['resourceType']})")
+    else:
+        print_ok("Good caching strategy detected!")
+    
+    print("\n[DNS/CONNECTION] NETWORK TIMING ANALYSIS\n---------------------------------------")
+    dns_analysis = analyze_dns_connection_timing(reqs)
+    if dns_analysis['avg_dns_time'] > 50:
+        print_warn(f"Average DNS time: {dns_analysis['avg_dns_time']}ms (target: <50ms)")
+    if dns_analysis['avg_ssl_time'] > 200:
+        print_warn(f"Average SSL time: {dns_analysis['avg_ssl_time']}ms (target: <200ms)")
+    
+    print("Top domains by performance impact:")
+    for domain_stat in dns_analysis['domain_performance'][:5]:
+        print(f"  - {domain_stat['domain'][:40]} ({domain_stat['requests']} req, {domain_stat['total_time_ms']}ms total)")
+    
+    print("\n[THIRD-PARTY] ENHANCED THIRD-PARTY ANALYSIS\n------------------------------------------")
+    enhanced_tp_analysis = analyze_enhanced_third_party(reqs)
+    print(f"Total third-party domains: {enhanced_tp_analysis['total_third_party_domains']}")
+    
+    print("\nThird-party impact by category:")
+    for category, stats in enhanced_tp_analysis['category_breakdown'].items():
+        print(f"  {category.ljust(12)}: {stats['domains']} domains, {stats['requests']} requests, {round(stats['total_time'])}ms total")
+    
+    if enhanced_tp_analysis['blocking_third_parties']:
+        print_error(f"Blocking third-parties detected: {', '.join(enhanced_tp_analysis['blocking_third_parties'])}")
+    
     print_ok("Analysis Complete!")
     print("Check Performance_Analysis_Report.md for detailed recommendations.")
     
-    # Generate agent-friendly summary
+    # Generate agent-friendly summary with enhanced analysis
     print("\n[AGENT SUMMARY] JSON Summary for Agent Consumption")
     print("="*50)
-    agent_summary = generate_agent_summary(summary, header)
+    agent_summary = generate_agent_summary(summary, header, {
+        'compression': compression_analysis,
+        'caching': cache_analysis,
+        'dns_connection': dns_analysis,
+        'enhanced_third_party': enhanced_tp_analysis
+    })
     print(json.dumps(agent_summary, indent=2))
     
     # Save agent summary to file
@@ -208,7 +259,7 @@ def main(har_file=None, input_dir=None):
         json.dump(agent_summary, f, indent=2)
     print_ok("Agent summary saved to agent_summary.json")
 
-def generate_agent_summary(summary, header):
+def generate_agent_summary(summary, header, enhanced_analysis=None):
     """Generate a comprehensive summary for AI agent consumption"""
     try:
         reqs = summary['requests']
@@ -234,7 +285,7 @@ def generate_agent_summary(summary, header):
         # Top slowest requests
         slowest = sorted(reqs, key=lambda x: -x['time'])[:5]
         
-        return {
+        base_summary = {
             "performance_summary": {
                 "total_requests": total_entries,
                 "dom_ready_time": f"{dom_ready}s",
@@ -252,8 +303,298 @@ def generate_agent_summary(summary, header):
             "slowest_requests": [{"url": r['url'][:80], "time_ms": round(r['time'])} for r in slowest],
             "failed_requests": [{"url": r['url'], "status": r['status']} for r in failed]
         }
+        
+        # Add enhanced analysis if provided
+        if enhanced_analysis:
+            base_summary.update({
+                "compression_analysis": enhanced_analysis.get('compression', {}),
+                "caching_analysis": enhanced_analysis.get('caching', {}),
+                "dns_connection_analysis": enhanced_analysis.get('dns_connection', {}),
+                "enhanced_third_party_analysis": enhanced_analysis.get('enhanced_third_party', {})
+            })
+        
+        return base_summary
+        
     except Exception as e:
         return {"error": f"Failed to generate summary: {str(e)}"}
+
+def analyze_compression(requests):
+    """Analyze compression usage and opportunities"""
+    def get_header_value(headers, name):
+        for header in headers:
+            if header['name'].lower() == name.lower():
+                return header['value']
+        return None
+    
+    uncompressed_text = []
+    compression_savings = 0
+    total_compressible = 0
+    
+    for req in requests:
+        content_type = get_header_value(req.get('responseHeaders', []), 'content-type') or ''
+        content_encoding = get_header_value(req.get('responseHeaders', []), 'content-encoding')
+        size = req.get('size', 0)
+        
+        # Check if resource is text-based and compressible
+        is_text = any(t in content_type.lower() for t in [
+            'text/', 'application/javascript', 'application/json', 
+            'application/xml', 'application/css', 'image/svg'
+        ])
+        
+        if is_text and size > 1024:  # Only check files > 1KB
+            total_compressible += size
+            if not content_encoding:
+                uncompressed_text.append({
+                    'url': req['url'],
+                    'size': size,
+                    'contentType': content_type,
+                    'potential_savings': int(size * 0.7)  # Estimate 70% compression
+                })
+                compression_savings += int(size * 0.7)
+    
+    return {
+        'uncompressed_resources': uncompressed_text,
+        'total_potential_savings_kb': round(compression_savings / 1024, 1),
+        'total_compressible_kb': round(total_compressible / 1024, 1),
+        'compression_opportunity_count': len(uncompressed_text)
+    }
+
+def analyze_caching(requests):
+    """Analyze caching headers and opportunities"""
+    def get_header_value(headers, name):
+        for header in headers:
+            if header['name'].lower() == name.lower():
+                return header['value']
+        return None
+    
+    no_cache = []
+    short_cache = []
+    good_cache = []
+    cache_analysis = {}
+    
+    for req in requests:
+        headers = req.get('responseHeaders', [])
+        cache_control = get_header_value(headers, 'cache-control')
+        expires = get_header_value(headers, 'expires')
+        etag = get_header_value(headers, 'etag')
+        last_modified = get_header_value(headers, 'last-modified')
+        
+        cache_score = 0
+        cache_issues = []
+        
+        if not cache_control and not expires:
+            no_cache.append({
+                'url': req['url'],
+                'size': req.get('size', 0),
+                'resourceType': req.get('resourceType', 'unknown')
+            })
+            cache_issues.append('No cache headers')
+        else:
+            if cache_control:
+                if 'no-cache' in cache_control or 'no-store' in cache_control:
+                    cache_issues.append('Caching disabled')
+                elif 'max-age' in cache_control:
+                    # Extract max-age value
+                    import re
+                    match = re.search(r'max-age=(\d+)', cache_control)
+                    if match:
+                        max_age = int(match.group(1))
+                        if max_age < 3600:  # Less than 1 hour
+                            short_cache.append({
+                                'url': req['url'],
+                                'max_age_hours': round(max_age / 3600, 2),
+                                'resourceType': req.get('resourceType', 'unknown')
+                            })
+                            cache_issues.append(f'Short cache duration ({max_age}s)')
+                        else:
+                            good_cache.append(req['url'])
+                            cache_score += 2
+            
+            if etag:
+                cache_score += 1
+            if last_modified:
+                cache_score += 1
+        
+        if req['url'] not in [item['url'] for item in no_cache + short_cache] + good_cache:
+            cache_analysis[req['url']] = {
+                'score': cache_score,
+                'issues': cache_issues
+            }
+    
+    return {
+        'no_cache_resources': no_cache[:10],  # Limit to top 10
+        'short_cache_resources': short_cache[:10],
+        'well_cached_count': len(good_cache),
+        'cache_optimization_count': len(no_cache) + len(short_cache)
+    }
+
+def analyze_dns_connection_timing(requests):
+    """Analyze DNS resolution and connection timing"""
+    dns_times = []
+    ssl_times = []
+    connection_times = []
+    domains = {}
+    
+    for req in requests:
+        timings = req.get('timings', {})
+        dns_time = timings.get('dns', -1)
+        ssl_time = timings.get('ssl', -1)
+        connect_time = timings.get('connect', -1)
+        
+        # Extract domain
+        from urllib.parse import urlparse
+        try:
+            domain = urlparse(req['url']).netloc
+        except:
+            domain = 'unknown'
+        
+        if domain not in domains:
+            domains[domain] = {
+                'requests': 0,
+                'dns_times': [],
+                'ssl_times': [],
+                'connect_times': [],
+                'total_time': 0
+            }
+        
+        domains[domain]['requests'] += 1
+        domains[domain]['total_time'] += req.get('time', 0)
+        
+        if dns_time >= 0:
+            dns_times.append({'url': req['url'], 'dns_time': dns_time, 'domain': domain})
+            domains[domain]['dns_times'].append(dns_time)
+        
+        if ssl_time >= 0:
+            ssl_times.append({'url': req['url'], 'ssl_time': ssl_time, 'domain': domain})
+            domains[domain]['ssl_times'].append(ssl_time)
+        
+        if connect_time >= 0:
+            connection_times.append({'url': req['url'], 'connect_time': connect_time, 'domain': domain})
+            domains[domain]['connect_times'].append(connect_time)
+    
+    # Calculate domain-level statistics
+    domain_stats = []
+    for domain, stats in domains.items():
+        avg_dns = sum(stats['dns_times']) / len(stats['dns_times']) if stats['dns_times'] else 0
+        avg_ssl = sum(stats['ssl_times']) / len(stats['ssl_times']) if stats['ssl_times'] else 0
+        avg_connect = sum(stats['connect_times']) / len(stats['connect_times']) if stats['connect_times'] else 0
+        
+        domain_stats.append({
+            'domain': domain,
+            'requests': stats['requests'],
+            'avg_dns_ms': round(avg_dns, 1),
+            'avg_ssl_ms': round(avg_ssl, 1),
+            'avg_connect_ms': round(avg_connect, 1),
+            'total_time_ms': round(stats['total_time'], 1)
+        })
+    
+    # Sort by total impact
+    domain_stats.sort(key=lambda x: x['total_time_ms'], reverse=True)
+    
+    # Find slow DNS resolutions (>100ms)
+    slow_dns = [item for item in dns_times if item['dns_time'] > 100]
+    slow_ssl = [item for item in ssl_times if item['ssl_time'] > 500]
+    
+    return {
+        'domain_performance': domain_stats[:10],  # Top 10 domains by impact
+        'slow_dns_resolutions': sorted(slow_dns, key=lambda x: x['dns_time'], reverse=True)[:5],
+        'slow_ssl_handshakes': sorted(slow_ssl, key=lambda x: x['ssl_time'], reverse=True)[:5],
+        'avg_dns_time': round(sum(item['dns_time'] for item in dns_times) / len(dns_times), 1) if dns_times else 0,
+        'avg_ssl_time': round(sum(item['ssl_time'] for item in ssl_times) / len(ssl_times), 1) if ssl_times else 0
+    }
+
+def analyze_enhanced_third_party(requests):
+    """Enhanced third-party analysis with categorization"""
+    from urllib.parse import urlparse
+    
+    # Known third-party categories
+    third_party_categories = {
+        'analytics': ['google-analytics', 'googletagmanager', 'analytics', 'gtm', 'ga', 'mixpanel', 'segment'],
+        'advertising': ['doubleclick', 'adsystem', 'googlesyndication', 'facebook.com', 'adsrvr', 'amazon-adsystem'],
+        'social': ['facebook', 'twitter', 'linkedin', 'instagram', 'pinterest', 'youtube'],
+        'cdn': ['cloudflare', 'amazonaws', 'cloudfront', 'fastly', 'jsdelivr', 'cdnjs'],
+        'performance': ['signalfx', 'newrelic', 'datadog', 'pingdom'],
+        'security': ['cookielaw', 'onetrust', 'cloudflare'],
+        'fonts': ['fonts.googleapis', 'fonts.gstatic', 'typekit'],
+        'maps': ['maps.googleapis', 'mapbox']
+    }
+    
+    def categorize_domain(domain):
+        domain_lower = domain.lower()
+        for category, keywords in third_party_categories.items():
+            if any(keyword in domain_lower for keyword in keywords):
+                return category
+        return 'other'
+    
+    third_party_analysis = {}
+    domain_impact = {}
+    
+    for req in requests:
+        try:
+            domain = urlparse(req['url']).netloc
+        except:
+            domain = 'unknown'
+        
+        category = categorize_domain(domain)
+        time_ms = req.get('time', 0)
+        size = req.get('size', 0)
+        
+        if domain not in domain_impact:
+            domain_impact[domain] = {
+                'category': category,
+                'requests': 0,
+                'total_time': 0,
+                'total_size': 0,
+                'avg_time': 0,
+                'blocking_time': 0,
+                'failed_requests': 0
+            }
+        
+        domain_impact[domain]['requests'] += 1
+        domain_impact[domain]['total_time'] += time_ms
+        domain_impact[domain]['total_size'] += size
+        
+        # Check for blocking behavior (requests >1s are potentially blocking)
+        if time_ms > 1000:
+            domain_impact[domain]['blocking_time'] += time_ms
+        
+        # Track failures
+        if req.get('status', 200) >= 400:
+            domain_impact[domain]['failed_requests'] += 1
+    
+    # Calculate averages and sort by impact
+    for domain, stats in domain_impact.items():
+        stats['avg_time'] = round(stats['total_time'] / stats['requests'], 1)
+        stats['total_size_kb'] = round(stats['total_size'] / 1024, 1)
+    
+    # Sort by total time impact
+    sorted_domains = sorted(domain_impact.items(), key=lambda x: x[1]['total_time'], reverse=True)
+    
+    # Category breakdown
+    category_impact = {}
+    for domain, stats in domain_impact.items():
+        category = stats['category']
+        if category not in category_impact:
+            category_impact[category] = {
+                'domains': 0,
+                'requests': 0,
+                'total_time': 0,
+                'blocking_requests': 0
+            }
+        
+        category_impact[category]['domains'] += 1
+        category_impact[category]['requests'] += stats['requests']
+        category_impact[category]['total_time'] += stats['total_time']
+        if stats['blocking_time'] > 0:
+            category_impact[category]['blocking_requests'] += 1
+    
+    return {
+        'domain_impact': dict(sorted_domains[:15]),  # Top 15 domains
+        'category_breakdown': category_impact,
+        'total_third_party_domains': len(domain_impact),
+        'high_impact_domains': [domain for domain, stats in sorted_domains[:5]],
+        'blocking_third_parties': [domain for domain, stats in domain_impact.items() if stats['blocking_time'] > 2000]
+    }
 
 if __name__ == "__main__":
     import argparse

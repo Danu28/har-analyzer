@@ -290,6 +290,9 @@ class HARHtmlReportGenerator:
         total_requests = perf_summary.get('total_requests', 0)
         requests_class = 'critical' if total_requests > 100 else 'warning' if total_requests > 50 else 'success'
         
+        # Generate enhanced analysis sections
+        enhanced_analysis_html = self._generate_enhanced_analysis_html(agent_data)
+        
         # Generate complete HTML
         html_content = self._generate_html_template(
             har_name=har_name,
@@ -305,7 +308,8 @@ class HARHtmlReportGenerator:
             largest_assets_rows=largest_assets_rows,
             slowest_requests_rows=slowest_requests_rows,
             failed_requests_html=failed_requests_html,
-            largest_assets=largest_assets
+            largest_assets=largest_assets,
+            enhanced_analysis_html=enhanced_analysis_html
         )
         
         # Write HTML file
@@ -320,6 +324,246 @@ class HARHtmlReportGenerator:
         print(f"Recommendations: {len(performance_analysis['recommendations'])}")
         
         return output_file
+    
+    def _generate_enhanced_analysis_html(self, agent_data):
+        """Generate HTML for enhanced analysis sections"""
+        compression_data = agent_data.get('compression_analysis', {})
+        caching_data = agent_data.get('caching_analysis', {})
+        dns_data = agent_data.get('dns_connection_analysis', {})
+        third_party_data = agent_data.get('enhanced_third_party_analysis', {})
+        
+        # Compression Analysis Section
+        compression_html = ""
+        if compression_data:
+            uncompressed_count = compression_data.get('compression_opportunity_count', 0)
+            potential_savings = compression_data.get('total_potential_savings_kb', 0)
+            
+            if uncompressed_count > 0:
+                compression_rows = []
+                for resource in compression_data.get('uncompressed_resources', [])[:5]:
+                    url = resource.get('url', 'N/A')
+                    size_kb = round(resource.get('size', 0) / 1024, 1)
+                    potential_kb = round(resource.get('potential_savings', 0) / 1024, 1)
+                    compression_rows.append(f"""
+                    <tr>
+                        <td class="url-cell" title="{url}">{url[:50]}...</td>
+                        <td>{size_kb:.1f} KB</td>
+                        <td>{potential_kb:.1f} KB</td>
+                    </tr>
+                    """)
+                
+                compression_html = f"""
+                <div class="section">
+                    <div class="section-header">
+                        <h2>🗜️ Compression Analysis</h2>
+                        <p>Resources that could benefit from compression</p>
+                    </div>
+                    <div class="section-content">
+                        <div class="metric-grid">
+                            <div class="metric-card">
+                                <div class="metric-value warning">{uncompressed_count}</div>
+                                <div class="metric-label">Uncompressed Resources</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value info">{potential_savings:.1f} KB</div>
+                                <div class="metric-label">Potential Savings</div>
+                            </div>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Resource</th>
+                                    <th>Current Size</th>
+                                    <th>Potential Savings</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {''.join(compression_rows)}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                """
+        
+        # Caching Analysis Section
+        caching_html = ""
+        if caching_data:
+            no_cache_count = len(caching_data.get('no_cache_resources', []))
+            short_cache_count = len(caching_data.get('short_cache_resources', []))
+            
+            if no_cache_count > 0 or short_cache_count > 0:
+                cache_rows = []
+                for resource in caching_data.get('no_cache_resources', [])[:5]:
+                    url = resource.get('url', 'N/A')
+                    resource_type = resource.get('resourceType', 'unknown')
+                    cache_rows.append(f"""
+                    <tr>
+                        <td class="url-cell" title="{url}">{url[:50]}...</td>
+                        <td>{resource_type}</td>
+                        <td><span class="status-badge status-error">No Cache</span></td>
+                    </tr>
+                    """)
+                
+                for resource in caching_data.get('short_cache_resources', [])[:5]:
+                    url = resource.get('url', 'N/A')
+                    resource_type = resource.get('resourceType', 'unknown')
+                    max_age = resource.get('max_age_hours', 0)
+                    cache_rows.append(f"""
+                    <tr>
+                        <td class="url-cell" title="{url}">{url[:50]}...</td>
+                        <td>{resource_type}</td>
+                        <td><span class="status-badge status-warning">{max_age:.1f}h</span></td>
+                    </tr>
+                    """)
+                
+                caching_html = f"""
+                <div class="section">
+                    <div class="section-header">
+                        <h2>🔄 Caching Analysis</h2>
+                        <p>Resources with caching optimization opportunities</p>
+                    </div>
+                    <div class="section-content">
+                        <div class="metric-grid">
+                            <div class="metric-card">
+                                <div class="metric-value critical">{no_cache_count}</div>
+                                <div class="metric-label">No Cache Headers</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value warning">{short_cache_count}</div>
+                                <div class="metric-label">Short Cache Duration</div>
+                            </div>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Resource</th>
+                                    <th>Type</th>
+                                    <th>Cache Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {''.join(cache_rows)}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                """
+        
+        # DNS/Connection Analysis Section
+        dns_html = ""
+        if dns_data:
+            avg_dns = dns_data.get('avg_dns_time', 0)
+            avg_ssl = dns_data.get('avg_ssl_time', 0)
+            
+            domain_rows = []
+            for domain in dns_data.get('domain_performance', [])[:5]:
+                domain_name = domain.get('domain', 'N/A')
+                requests = domain.get('requests', 0)
+                avg_dns_ms = domain.get('avg_dns_ms', 0)
+                avg_ssl_ms = domain.get('avg_ssl_ms', 0)
+                total_time = domain.get('total_time_ms', 0)
+                
+                domain_rows.append(f"""
+                <tr>
+                    <td class="url-cell" title="{domain_name}">{domain_name[:40]}...</td>
+                    <td>{requests}</td>
+                    <td>{avg_dns_ms:.1f} ms</td>
+                    <td>{avg_ssl_ms:.1f} ms</td>
+                    <td>{total_time:.1f} ms</td>
+                </tr>
+                """)
+            
+            dns_html = f"""
+            <div class="section">
+                <div class="section-header">
+                    <h2>🌐 DNS & Connection Analysis</h2>
+                    <p>Network timing and connection performance</p>
+                </div>
+                <div class="section-content">
+                    <div class="metric-grid">
+                        <div class="metric-card">
+                            <div class="metric-value {'warning' if avg_dns > 50 else 'success'}">{avg_dns:.1f} ms</div>
+                            <div class="metric-label">Average DNS Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value {'warning' if avg_ssl > 200 else 'success'}">{avg_ssl:.1f} ms</div>
+                            <div class="metric-label">Average SSL Time</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Domain</th>
+                                <th>Requests</th>
+                                <th>Avg DNS</th>
+                                <th>Avg SSL</th>
+                                <th>Total Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {''.join(domain_rows)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            """
+        
+        # Enhanced Third-Party Analysis Section
+        third_party_html = ""
+        if third_party_data:
+            total_domains = third_party_data.get('total_third_party_domains', 0)
+            blocking_domains = third_party_data.get('blocking_third_parties', [])
+            
+            category_rows = []
+            for category, stats in third_party_data.get('category_breakdown', {}).items():
+                domains = stats.get('domains', 0)
+                requests = stats.get('requests', 0)
+                total_time = stats.get('total_time', 0)
+                
+                category_rows.append(f"""
+                <tr>
+                    <td>{category.title()}</td>
+                    <td>{domains}</td>
+                    <td>{requests}</td>
+                    <td>{total_time:.0f} ms</td>
+                </tr>
+                """)
+            
+            third_party_html = f"""
+            <div class="section">
+                <div class="section-header">
+                    <h2>🔗 Enhanced Third-Party Analysis</h2>
+                    <p>Categorized third-party service impact</p>
+                </div>
+                <div class="section-content">
+                    <div class="metric-grid">
+                        <div class="metric-card">
+                            <div class="metric-value info">{total_domains}</div>
+                            <div class="metric-label">Third-Party Domains</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value {'critical' if len(blocking_domains) > 0 else 'success'}">{len(blocking_domains)}</div>
+                            <div class="metric-label">Blocking Services</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Domains</th>
+                                <th>Requests</th>
+                                <th>Total Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {''.join(category_rows)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            """
+        
+        return compression_html + caching_html + dns_html + third_party_html
     
     def _generate_html_template(self, **kwargs):
         """Generate the HTML template with all data"""
@@ -683,6 +927,9 @@ class HARHtmlReportGenerator:
                 </div>
             </div>
         </div>
+        
+        <!-- Enhanced Analysis Sections -->
+        {kwargs['enhanced_analysis_html']}
         
         <div class="footer">
             <p>Generated by HAR Performance Analysis Tool • {datetime.datetime.now().strftime('%Y')}</p>

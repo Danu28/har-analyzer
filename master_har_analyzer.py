@@ -123,36 +123,35 @@ def run_script(script_path, args=None, description=""):
     if args:
         cmd.extend(args)
     
-    print_info(f"Running: {' '.join(cmd)}")
+    print_info(f"Running: {' '.join(map(str, cmd))}")
     
     try:
         # Set environment to handle Unicode properly
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'utf-8'
         
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd(), env=env)
+        # Run script with explicit UTF-8 encoding for output
+        result = subprocess.run(
+            cmd, 
+            capture_output=True, 
+            text=True, 
+            cwd=os.getcwd(), 
+            env=env,
+            encoding='utf-8',
+            errors='replace'  # Replace characters that can't be decoded
+        )
         
         if result.returncode == 0:
             print_success(f"{description} completed successfully")
             if result.stdout:
-                # Handle potential encoding issues in output
-                try:
-                    print(result.stdout)
-                except UnicodeError:
-                    print("Output contains special characters (processing completed successfully)")
+                print(result.stdout)
             return True
         else:
             print_error(f"{description} failed with return code {result.returncode}")
             if result.stderr:
-                try:
-                    print(f"Error output: {result.stderr}")
-                except UnicodeError:
-                    print("Error output contains special characters")
+                print(f"Error output:\n{result.stderr}")
             if result.stdout:
-                try:
-                    print(f"Standard output: {result.stdout}")
-                except UnicodeError:
-                    print("Standard output contains special characters")
+                print(f"Standard output:\n{result.stdout}")
             return False
     except Exception as e:
         print_error(f"Failed to run {script_path}: {str(e)}")
@@ -185,19 +184,27 @@ def move_report_to_reports_folder(har_base_name, reports_dir):
         print_error(f"Generated report not found: {current_report}")
         return None
 
-def cleanup_temp_files(har_base_name):
-    """Clean up temporary files generated during analysis"""
-    temp_files = [
-        f"quick_analysis_{har_base_name}.json",
+def archive_analysis_files(har_base_name, reports_dir):
+    """Move analysis files to a dedicated folder in the reports directory."""
+    # Create a dedicated folder for the analysis files
+    analysis_data_dir = reports_dir / f"{har_base_name}_analysis_data"
+    analysis_data_dir.mkdir(exist_ok=True)
+    print_info(f"Archiving analysis files to: {analysis_data_dir}")
+
+    analysis_files = [
         "agent_summary.json",
         "Performance_Analysis_Report.md"
     ]
-    
-    for temp_file in temp_files:
-        temp_path = Path(temp_file)
-        if temp_path.exists():
-            temp_path.unlink()
-            print_info(f"Cleaned up: {temp_file}")
+
+    for file_name in analysis_files:
+        current_path = Path(file_name)
+        if current_path.exists():
+            new_path = analysis_data_dir / file_name
+            # If file exists in destination, remove it before moving
+            if new_path.exists():
+                new_path.unlink()
+            current_path.rename(new_path)
+            print_info(f"Archived: {file_name}")
 
 def display_final_summary(har_file, report_path, start_time):
     """Display final summary of the analysis"""
@@ -209,17 +216,17 @@ def display_final_summary(har_file, report_path, start_time):
     print_success(f"Report Location: {report_path}")
     print_success(f"Processing Time: {duration.total_seconds():.1f} seconds")
     
-    # Try to read quick analysis for summary stats
+    # Try to read agent summary for summary stats
     try:
-        quick_analysis_file = Path(f"quick_analysis_{har_file.stem}.json")
-        if quick_analysis_file.exists():
-            with open(quick_analysis_file, 'r') as f:
+        agent_summary_file = Path("agent_summary.json")
+        if agent_summary_file.exists():
+            with open(agent_summary_file, 'r') as f:
                 data = json.load(f)
-                summary = data.get('summary', {})
-                print_info(f"Performance Grade: {summary.get('performance_grade', 'N/A')}")
-                print_info(f"Page Load Time: {summary.get('page_load_time', 'N/A')}")
-                print_info(f"Total Requests: {summary.get('total_requests', 'N/A')}")
-                print_info(f"Total Size: {summary.get('total_size_mb', 'N/A')}")
+                perf_summary = data.get('performance_summary', {})
+                print_info(f"Performance Grade: {perf_summary.get('performance_grade', 'N/A')}")
+                print_info(f"Page Load Time: {perf_summary.get('page_load_time', 'N/A')}")
+                print_info(f"DOM Ready Time: {perf_summary.get('dom_ready_time', 'N/A')}")
+                print_info(f"Total Requests: {perf_summary.get('total_requests', 'N/A')}")
     except:
         pass
 
@@ -246,13 +253,13 @@ def main():
     
     # Step 3: Break down HAR file
     print_step(3, 5, "Breaking down HAR file into analyzable chunks")
-    if not run_script("scripts/break_har_file.py", description="HAR file breakdown"):
+    if not run_script("scripts/break_har_file.py", ["--har", str(selected_har)], description="HAR file breakdown"):
         print_error("Failed to break down HAR file. Exiting.")
         return
     
     # Step 4: Analyze performance
     print_step(4, 5, "Analyzing performance metrics")
-    if not run_script("scripts/analyze_performance.py", description="Performance analysis"):
+    if not run_script("scripts/analyze_performance.py", ["--har", str(selected_har)], description="Performance analysis"):
         print_error("Failed to analyze performance. Exiting.")
         return
     
@@ -267,12 +274,12 @@ def main():
     final_report_path = move_report_to_reports_folder(har_base_name, reports_dir)
     
     if final_report_path:
-        # Clean up temporary files
-        print_info("Cleaning up temporary files...")
-        cleanup_temp_files(har_base_name)
-        
-        # Display final summary
+        # Display final summary before cleanup
         display_final_summary(selected_har, final_report_path, start_time)
+        
+        # Archive analysis files instead of deleting them
+        print_info("Archiving analysis files...")
+        archive_analysis_files(har_base_name, reports_dir)
         
         # Open report in browser
         try:
