@@ -620,19 +620,8 @@ class HARHtmlReportGenerator:
                 {all_domains_table_html}
             </div>
             {blocking_table_container_html}
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Domains</th>
-                                <th>Requests</th>
-                                <th>Total Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {''.join(category_rows)}
-                        </tbody>
-                    </table>
+            <!-- Only show the summary table below if not already shown in the toggled container -->
+            <!-- (No duplicate table) -->
                 </div>
             </div>
             <script>
