@@ -586,6 +586,22 @@ class HARHtmlReportGenerator:
                 """
             all_domains_table_html = category_table_html
 
+            # Only render the blocking card and table if there are blocking domains
+            blocking_card_html = ""
+            blocking_table_container_html = ""
+            if blocking_domains:
+                blocking_card_html = f'''
+            <div class="metric-card" id="blocking-metric-card" style="cursor:pointer;">
+                <div class="metric-value critical">{len(blocking_domains)}</div>
+                <div class="metric-label">Blocking Services</div>
+            </div>
+                '''
+                blocking_table_container_html = f'''
+            <div id="blocking-table-container" style="margin-top:10px; display:none;">
+                {blocking_table_html}
+            </div>
+                '''
+
             third_party_html = f"""
             <div class="section">
                 <div class="section-header">
@@ -598,17 +614,12 @@ class HARHtmlReportGenerator:
                 <div class="metric-value info">{total_domains}</div>
                 <div class="metric-label">Third-Party Domains</div>
             </div>
-            <div class="metric-card" id="blocking-metric-card" style="cursor:pointer;">
-                <div class="metric-value {'critical' if len(blocking_domains) > 0 else 'success'}">{len(blocking_domains)}</div>
-                <div class="metric-label">Blocking Services</div>
-            </div>
+            {blocking_card_html}
                     </div>
             <div id="thirdparty-table-container" style="margin-top:10px; display:none;">
                 {all_domains_table_html}
             </div>
-            <div id="blocking-table-container" style="margin-top:10px; display:none;">
-                {blocking_table_html}
-            </div>
+            {blocking_table_container_html}
                     <table class="data-table">
                         <thead>
                             <tr>
