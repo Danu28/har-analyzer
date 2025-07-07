@@ -186,25 +186,30 @@ def move_report_to_reports_folder(har_base_name, reports_dir):
 
 def archive_analysis_files(har_base_name, reports_dir):
     """Move analysis files to a dedicated folder in the reports directory."""
-    # Create a dedicated folder for the analysis files
-    analysis_data_dir = reports_dir / f"{har_base_name}_analysis_data"
-    analysis_data_dir.mkdir(exist_ok=True)
-    print_info(f"Archiving analysis files to: {analysis_data_dir}")
-
     analysis_files = [
         "agent_summary.json",
         "Performance_Analysis_Report.md"
     ]
 
-    for file_name in analysis_files:
+    # Check if any analysis file exists before creating the directory
+    files_to_archive = [file_name for file_name in analysis_files if Path(file_name).exists()]
+    if not files_to_archive:
+        print_info("No analysis files to archive.")
+        return
+
+    # Create a dedicated folder for the analysis files only if needed
+    analysis_data_dir = reports_dir / f"{har_base_name}_analysis_data"
+    analysis_data_dir.mkdir(exist_ok=True)
+    print_info(f"Archiving analysis files to: {analysis_data_dir}")
+
+    for file_name in files_to_archive:
         current_path = Path(file_name)
-        if current_path.exists():
-            new_path = analysis_data_dir / file_name
-            # If file exists in destination, remove it before moving
-            if new_path.exists():
-                new_path.unlink()
-            current_path.rename(new_path)
-            print_info(f"Archived: {file_name}")
+        new_path = analysis_data_dir / file_name
+        # If file exists in destination, remove it before moving
+        if new_path.exists():
+            new_path.unlink()
+        current_path.rename(new_path)
+        print_info(f"Archived: {file_name}")
 
 def display_final_summary(har_file, report_path, start_time):
     """Display final summary of the analysis"""

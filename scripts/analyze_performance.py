@@ -220,11 +220,22 @@ def main(har_file=None, input_dir=None):
     
     print("\n[DNS/CONNECTION] NETWORK TIMING ANALYSIS\n---------------------------------------")
     dns_analysis = analyze_dns_connection_timing(reqs)
-    if dns_analysis['avg_dns_time'] > 50:
-        print_warn(f"Average DNS time: {dns_analysis['avg_dns_time']}ms (target: <50ms)")
-    if dns_analysis['avg_ssl_time'] > 200:
-        print_warn(f"Average SSL time: {dns_analysis['avg_ssl_time']}ms (target: <200ms)")
-    
+    # Handle N/A case for DNS/SSL timings
+    avg_dns = dns_analysis['avg_dns_time']
+    avg_ssl = dns_analysis['avg_ssl_time']
+    if avg_dns == "N/A":
+        print_warn("Average DNS time: N/A (no valid timing data)")
+    elif avg_dns > 50:
+        print_warn(f"Average DNS time: {avg_dns}ms (target: <50ms)")
+    else:
+        print_ok(f"Average DNS time: {avg_dns}ms")
+    if avg_ssl == "N/A":
+        print_warn("Average SSL time: N/A (no valid timing data)")
+    elif avg_ssl > 200:
+        print_warn(f"Average SSL time: {avg_ssl}ms (target: <200ms)")
+    else:
+        print_ok(f"Average SSL time: {avg_ssl}ms")
+
     print("Top domains by performance impact:")
     for domain_stat in dns_analysis['domain_performance'][:5]:
         print(f"  - {domain_stat['domain'][:40]} ({domain_stat['requests']} req, {domain_stat['total_time_ms']}ms total)")
@@ -499,8 +510,8 @@ def analyze_dns_connection_timing(requests):
         'domain_performance': domain_stats[:10],  # Top 10 domains by impact
         'slow_dns_resolutions': sorted(slow_dns, key=lambda x: x['dns_time'], reverse=True)[:5],
         'slow_ssl_handshakes': sorted(slow_ssl, key=lambda x: x['ssl_time'], reverse=True)[:5],
-        'avg_dns_time': round(sum(item['dns_time'] for item in dns_times) / len(dns_times), 1) if dns_times else 0,
-        'avg_ssl_time': round(sum(item['ssl_time'] for item in ssl_times) / len(ssl_times), 1) if ssl_times else 0
+        'avg_dns_time': round(sum(item['dns_time'] for item in dns_times) / len(dns_times), 1) if dns_times else "N/A",
+        'avg_ssl_time': round(sum(item['ssl_time'] for item in ssl_times) / len(ssl_times), 1) if ssl_times else "N/A"
     }
 
 def analyze_enhanced_third_party(requests):

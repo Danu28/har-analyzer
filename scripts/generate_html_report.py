@@ -454,7 +454,22 @@ class HARHtmlReportGenerator:
         if dns_data:
             avg_dns = dns_data.get('avg_dns_time', 0)
             avg_ssl = dns_data.get('avg_ssl_time', 0)
-            
+
+            # Prepare display values and classes for N/A
+            if avg_dns == "N/A":
+                avg_dns_display = "N/A"
+                avg_dns_class = "warning"
+            else:
+                avg_dns_display = f"{avg_dns:.1f} ms"
+                avg_dns_class = "warning" if avg_dns > 50 else "success"
+
+            if avg_ssl == "N/A":
+                avg_ssl_display = "N/A"
+                avg_ssl_class = "warning"
+            else:
+                avg_ssl_display = f"{avg_ssl:.1f} ms"
+                avg_ssl_class = "warning" if avg_ssl > 200 else "success"
+
             domain_rows = []
             for domain in dns_data.get('domain_performance', [])[:5]:
                 domain_name = domain.get('domain', 'N/A')
@@ -462,17 +477,16 @@ class HARHtmlReportGenerator:
                 avg_dns_ms = domain.get('avg_dns_ms', 0)
                 avg_ssl_ms = domain.get('avg_ssl_ms', 0)
                 total_time = domain.get('total_time_ms', 0)
-                
                 domain_rows.append(f"""
                 <tr>
                     <td class="url-cell" title="{domain_name}">{domain_name[:40]}...</td>
                     <td>{requests}</td>
-                    <td>{avg_dns_ms:.1f} ms</td>
-                    <td>{avg_ssl_ms:.1f} ms</td>
+                    <td>{avg_dns_ms if avg_dns_ms != 0 else 'N/A'} ms</td>
+                    <td>{avg_ssl_ms if avg_ssl_ms != 0 else 'N/A'} ms</td>
                     <td>{total_time:.1f} ms</td>
                 </tr>
                 """)
-            
+
             dns_html = f"""
             <div class="section">
                 <div class="section-header">
@@ -482,11 +496,11 @@ class HARHtmlReportGenerator:
                 <div class="section-content">
                     <div class="metric-grid">
                         <div class="metric-card">
-                            <div class="metric-value {'warning' if avg_dns > 50 else 'success'}">{avg_dns:.1f} ms</div>
+                            <div class="metric-value {avg_dns_class}">{avg_dns_display}</div>
                             <div class="metric-label">Average DNS Time</div>
                         </div>
                         <div class="metric-card">
-                            <div class="metric-value {'warning' if avg_ssl > 200 else 'success'}">{avg_ssl:.1f} ms</div>
+                            <div class="metric-value {avg_ssl_class}">{avg_ssl_display}</div>
                             <div class="metric-label">Average SSL Time</div>
                         </div>
                     </div>
