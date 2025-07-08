@@ -23,6 +23,7 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+
 # PyInstaller
 *.manifest
 *.spec
@@ -77,6 +78,7 @@ reports/
 quick_analysis_*.json
 agent_summary.json
 Performance_Analysis_Report.md
+HAR-files/
 
 # Temporary files
 *.tmp
