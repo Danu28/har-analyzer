@@ -13,6 +13,34 @@ import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
+def safe_divide(numerator, denominator, default=0):
+    """Safely divide two numbers, returning default if denominator is zero"""
+    try:
+        if denominator == 0 or denominator is None:
+            return default
+        return numerator / denominator
+    except (TypeError, ZeroDivisionError):
+        return default
+
+def safe_max(iterable, default=1):
+    """Safely get max value from iterable, returning default if empty or error"""
+    try:
+        if not iterable:
+            return default
+        filtered = [x for x in iterable if x is not None and x > 0]
+        return max(filtered) if filtered else default
+    except (TypeError, ValueError):
+        return default
+
+def safe_percentage(numerator, denominator, default=0):
+    """Safely calculate percentage, returning default if denominator is zero"""
+    try:
+        if denominator == 0 or denominator is None:
+            return default
+        return (numerator / denominator) * 100
+    except (TypeError, ZeroDivisionError):
+        return default
+
 class HARHtmlReportGenerator:
     def __init__(self, har_chunks_dir=None):
         """Initialize the HTML report generator"""
@@ -189,7 +217,7 @@ class HARHtmlReportGenerator:
         resource_chart_data = self.generate_resource_breakdown_chart()
         timeline_data = self.generate_timeline_data()
         
-        # Extract key data
+        # Extract key data with safe defaults
         agent_data = self.report_data.get('agent_summary', {})
         header_data = self.report_data.get('header', {})
         
@@ -212,7 +240,7 @@ class HARHtmlReportGenerator:
             status = req.get('status', 'N/A')
             if time_ms > 3000:
                 very_slow_collected.append((time_ms, url))
-        max_vs_time = max([t for t, _ in very_slow_collected], default=1)
+        max_vs_time = safe_max([t for t, _ in very_slow_collected], default=3000)
         very_slow_requests_rows = []
         slow_requests_rows = []
         failed_requests_rows = []
@@ -222,7 +250,7 @@ class HARHtmlReportGenerator:
             status = req.get('status', 'N/A')
             # Very slow: > 3000ms
             if time_ms > 3000:
-                bar_width = min(time_ms / max_vs_time * 200, 200)
+                bar_width = min(safe_divide(time_ms, max_vs_time, 0) * 200, 200)
                 very_slow_requests_rows.append(f"""
                 <tr>
                     <td class='url-cell' title='{url}'>{url[:50]}...</td>
@@ -232,11 +260,12 @@ class HARHtmlReportGenerator:
                 """)
             # Slow: > 1000ms and <= 3000ms
             elif time_ms > 1000:
+                bar_width = min(safe_divide(time_ms, 3000, 0) * 200, 200)
                 slow_requests_rows.append(f"""
                 <tr>
                     <td class='url-cell' title='{url}'>{url[:50]}...</td>
                     <td>{time_ms:.0f} ms</td>
-                    <td><div class='size-bar' style='width: {min(time_ms/3000*200, 200):.0f}px; background: linear-gradient(90deg, #f39c12, #f1c40f);'></div></td>
+                    <td><div class='size-bar' style='width: {bar_width:.0f}px; background: linear-gradient(90deg, #f39c12, #f1c40f);'></div></td>
                 </tr>
                 """)
             # Failed: status >= 400
@@ -300,11 +329,11 @@ class HARHtmlReportGenerator:
         
         # Generate largest assets HTML
         largest_assets_rows = []
-        max_size = max([a.get('size_kb', 1) for a in largest_assets]) if largest_assets else 1
+        max_size = safe_max([a.get('size_kb', 0) for a in largest_assets], default=1)
         for asset in largest_assets[:10]:
             url = asset.get('url', 'N/A')
             size_kb = asset.get('size_kb', 0)
-            bar_width = min(size_kb / max_size * 200, 200)
+            bar_width = min(safe_divide(size_kb, max_size, 0) * 200, 200)
             largest_assets_rows.append(f"""
             <tr>
                 <td class="url-cell" title="{url}">{url[:50]}...</td>
@@ -315,11 +344,11 @@ class HARHtmlReportGenerator:
         
         # Generate slowest requests HTML
         slowest_requests_rows = []
-        max_time = max([r.get('time_ms', 1) for r in slowest_requests]) if slowest_requests else 1
+        max_time = safe_max([r.get('time_ms', 0) for r in slowest_requests], default=1)
         for req in slowest_requests[:10]:
             url = req.get('url', 'N/A')
             time_ms = req.get('time_ms', 0)
-            bar_width = min(time_ms / max_time * 200, 200)
+            bar_width = min(safe_divide(time_ms, max_time, 0) * 200, 200)
             slowest_requests_rows.append(f"""
             <tr>
                 <td class="url-cell" title="{url}">{url[:50]}...</td>
