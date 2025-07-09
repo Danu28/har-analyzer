@@ -23,6 +23,7 @@ import webbrowser
 def generate_comparison_report(comparison_data: Dict[str, Any], 
                              output_file: Optional[str] = None,
                              template_file: Optional[str] = None,
+                             template_style: str = "side-by-side",
                              open_browser: bool = True) -> str:
     """
     Generate HTML comparison report from comparison analysis data
@@ -31,6 +32,7 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
         comparison_data: Comparison analysis dictionary from analyze_two_chunks.py
         output_file: Output HTML file path (default: har_comparison_report.html)
         template_file: Custom template file path (default: uses built-in template)
+        template_style: Template style - "side-by-side" or "detailed" (default: side-by-side)
         open_browser: Whether to open report in browser
         
     Returns:
@@ -49,17 +51,25 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
     
     # Try to use external template first, then fall back to built-in
     if template_file and os.path.exists(template_file):
-        print(f"🎨 Using template: {template_file}")
+        print(f"🎨 Using custom template: {template_file}")
         template_content = _load_template_file(template_file)
     else:
-        # Check for default template in templates directory
-        default_template = Path(__file__).parent.parent / "templates" / "har_comparison_expected.html"
+        # Check for style-specific template in templates directory
+        template_filename = f"har_comparison_{template_style.replace('-', '_')}.html" if template_style != "detailed" else "har_comparison_expected.html"
+        default_template = Path(__file__).parent.parent / "templates" / template_filename
+        
         if default_template.exists():
-            print(f"🎨 Using default template: {default_template}")
+            print(f"🎨 Using {template_style} template: {default_template}")
             template_content = _load_template_file(str(default_template))
         else:
-            print("🎨 Using built-in template")
-            template_content = _get_builtin_template()
+            # Fall back to original detailed template
+            fallback_template = Path(__file__).parent.parent / "templates" / "har_comparison_expected.html"
+            if fallback_template.exists():
+                print(f"🎨 Using fallback template: {fallback_template}")
+                template_content = _load_template_file(str(fallback_template))
+            else:
+                print("🎨 Using built-in template")
+                template_content = _get_builtin_template()
     
     # Process and validate comparison data
     processed_data = _process_comparison_data(comparison_data)
@@ -425,6 +435,8 @@ if __name__ == "__main__":
     report_parser.add_argument('--comparison', required=True, help='Comparison analysis JSON file')
     report_parser.add_argument('--output', help='Output HTML file')
     report_parser.add_argument('--template', help='Custom template file')
+    report_parser.add_argument('--template-style', choices=['side-by-side', 'detailed'], 
+                              default='side-by-side', help='Report template style')
     report_parser.add_argument('--no-browser', action='store_true', help='Don\'t open in browser')
     
     # Complete workflow mode
@@ -450,6 +462,7 @@ if __name__ == "__main__":
                 comparison_data,
                 args.output,
                 args.template,
+                args.template_style,
                 not args.no_browser
             )
             

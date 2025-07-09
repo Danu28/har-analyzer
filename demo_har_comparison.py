@@ -29,7 +29,7 @@ except ImportError as e:
     print("Make sure all required scripts are in the scripts/ directory")
     sys.exit(1)
 
-def run_har_comparison_flow(base_har_path: str, target_har_path: str, output_dir: str = None) -> dict:
+def run_har_comparison_flow(base_har_path: str, target_har_path: str, output_dir: str = None, template_style: str = "side-by-side") -> dict:
     """
     Run the complete HAR comparison flow
     
@@ -37,6 +37,7 @@ def run_har_comparison_flow(base_har_path: str, target_har_path: str, output_dir
         base_har_path: Path to the base/baseline HAR file
         target_har_path: Path to the target/comparison HAR file
         output_dir: Optional output directory for results
+        template_style: Report template style ('side-by-side' or 'detailed')
         
     Returns:
         Dictionary containing all generated file paths and results
@@ -103,6 +104,7 @@ def run_har_comparison_flow(base_har_path: str, target_har_path: str, output_dir
         generated_report = generate_comparison_report(
             comparison_data, 
             str(report_file),
+            template_style=template_style,  # Use the specified template style
             open_browser=False  # Don't auto-open in demo
         )
         results['generated_files']['html_report'] = generated_report
@@ -162,6 +164,8 @@ def main():
     parser.add_argument('--base', help='Base HAR file path')
     parser.add_argument('--target', help='Target HAR file path')
     parser.add_argument('--output', help='Output directory for results')
+    parser.add_argument('--template-style', choices=['side-by-side', 'detailed'], 
+                       default='side-by-side', help='Report template style (default: side-by-side)')
     parser.add_argument('--list', action='store_true', help='List available HAR files')
     parser.add_argument('--demo', action='store_true', help='Run demo with first two available HAR files')
     
@@ -183,7 +187,7 @@ def main():
         print(f"   Base: {har_files[0].name}")
         print(f"   Target: {har_files[1].name}")
         
-        results = run_har_comparison_flow(str(har_files[0]), str(har_files[1]))
+        results = run_har_comparison_flow(str(har_files[0]), str(har_files[1]), template_style=args.template_style)
         
         if results['success']:
             print(f"\n🎉 Demo completed successfully!")
@@ -203,7 +207,7 @@ def main():
     
     # Run comparison flow
     try:
-        results = run_har_comparison_flow(args.base, args.target, args.output)
+        results = run_har_comparison_flow(args.base, args.target, args.output, args.template_style)
         
         if results['success']:
             print(f"\n🎉 Comparison completed successfully!")
