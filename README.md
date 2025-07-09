@@ -53,6 +53,39 @@ python analyze_performance.py
 
 **Output**: Console output + `agent_summary.json`
 
+### 4. **HAR Comparison Flow** 🆕 - Compare Two HAR Files
+**Best for**: Performance regression detection and A/B testing
+
+```bash
+# Quick demo with available files
+python demo_har_comparison.py --demo
+
+# Compare specific files
+python demo_har_comparison.py --base baseline.har --target current.har
+```
+
+**Features**:
+- ✅ **Complete Workflow**: Break → Analyze → Report in one command
+- ✅ **Performance Regression Detection**: Automatically identifies slowdowns
+- ✅ **Resource Delta Analysis**: Shows added, removed, modified resources
+- ✅ **Professional HTML Reports**: Interactive comparison reports
+- ✅ **KPI Tracking**: Load time, request count, size changes
+- ✅ **Third-party Impact**: Domain-level analysis
+- ✅ **CI/CD Ready**: JSON output for automation
+
+**Output**: 
+- `comparison_analysis.json` - Structured comparison data
+- `comparison_report.html` - Interactive visual report
+- Individual breakdown files for base and target
+
+**Use Cases**:
+- Before/after code deployment comparisons
+- Performance impact of new features
+- A/B testing different configurations
+- Environment comparison (staging vs production)
+
+**Documentation**: See `HAR_COMPARISON_GUIDE.md` for detailed usage
+
 ## 🤖 Agent Usage Patterns
 
 ### For Quick Assessment
@@ -73,6 +106,17 @@ subprocess.run(['python', 'analyze_performance.py'])
 # 3. Read agent summary
 with open('har_chunks/<filename>/agent_summary.json') as f:
     detailed_data = json.load(f)
+```
+
+### For HAR Comparison
+```python
+# 1. Run HAR comparison demo
+subprocess.run(['python', 'demo_har_comparison.py', '--demo'])
+# 2. Compare specific HAR files
+subprocess.run(['python', 'demo_har_comparison.py', '--base', 'baseline.har', '--target', 'current.har'])
+# 3. Access comparison results
+with open('comparison_analysis.json') as f:
+    comparison_data = json.load(f)
 ```
 
 ## 📊 Understanding the Output
@@ -103,6 +147,7 @@ HAR-analyze/
 ├── quick_analyze.py          # Quick analysis tool
 ├── break_har_file.py         # HAR file breakdown tool
 ├── analyze_performance.py    # Advanced analysis tool
+├── demo_har_comparison.py    # HAR comparison demo tool
 ├── HAR-Files/                # Place HAR files here
 │   └── your_file.har
 └── har_chunks/               # Generated analysis files

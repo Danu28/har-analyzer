@@ -65,3 +65,67 @@ socks5://socks-proxy:1080
 3. **Review**: Open the generated HTML report in your browser
 
 The tools work together to provide a complete HAR capture and analysis workflow!
+
+## HAR Comparison Scripts 🆕
+
+The HAR comparison workflow consists of three modular scripts that work together to provide comprehensive performance comparison between two HAR files.
+
+### 1. `break_har.py` - HAR Breakdown Engine
+
+```bash
+# Break down a HAR file into structured components
+python break_har.py --har my_file.har --output breakdown_data/
+
+# Get JSON output directly (for programmatic use)
+python break_har.py --har my_file.har --json-output
+```
+
+**Purpose**: Converts raw HAR files into structured, analyzable data
+**Output**: JSON files with requests, timings, resource types, and performance metrics
+
+### 2. `analyze_two_chunks.py` - Comparison Analysis
+
+```bash
+# Compare two HAR breakdowns
+python analyze_two_chunks.py --base base_breakdown.json --target target_breakdown.json --output comparison.json
+```
+
+**Purpose**: Analyzes differences between two HAR breakdowns
+**Features**:
+- Resource deltas (added/removed/modified URLs)
+- KPI changes (load time, request count, sizes)
+- Performance regression detection
+- Third-party domain analysis
+
+### 3. `generate_comparison_report.py` - HTML Report Generator
+
+```bash
+# Generate HTML comparison report
+python generate_comparison_report.py comparison.json report.html
+
+# Use custom template
+python generate_comparison_report.py comparison.json report.html --template custom_template.html
+```
+
+**Purpose**: Creates professional HTML reports from comparison data
+**Features**:
+- Interactive charts and visualizations
+- Professional responsive design
+- Actionable performance insights
+- Template-based customization
+
+### Complete Workflow Example
+
+```bash
+# 1. Break down both HAR files
+python break_har.py --har baseline.har --output baseline_data/
+python break_har.py --har current.har --output current_data/
+
+# 2. Compare the breakdowns
+python analyze_two_chunks.py --base baseline_data/har_breakdown.json --target current_data/har_breakdown.json --output comparison_analysis.json
+
+# 3. Generate HTML report
+python generate_comparison_report.py comparison_analysis.json performance_comparison.html
+```
+
+**Tip**: Use `../demo_har_comparison.py` for automated end-to-end comparison workflow!
