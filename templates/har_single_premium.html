@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HAR Performance Analysis - Premium Report</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --info-color: #0891b2;
+            --purple-color: #7c3aed;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--gray-800);
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--purple-color) 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 40px;
+            border-radius: 20px;
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" fill="white" opacity="0.1"><polygon points="0,0 1000,0 1000,100 0,50"/></svg>');
+            background-size: cover;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .header .timestamp {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        /* Performance Grade Card */
+        .grade-showcase {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-xl);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .grade-showcase::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--danger-color), var(--warning-color), var(--success-color));
+        }
+
+        .performance-grade {
+            font-size: 5rem;
+            font-weight: 900;
+            margin: 20px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .grade-poor { color: var(--danger-color); }
+        .grade-fair { color: var(--warning-color); }
+        .grade-good { color: var(--success-color); }
+        .grade-excellent { color: var(--info-color); }
+
+        .grade-description {
+            font-size: 1.1rem;
+            color: var(--gray-600);
+            margin-bottom: 30px;
+        }
+
+        /* Key Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: var(--shadow-md);
+            text-align: center;
+            position: relative;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .metric-card.success::before { background: var(--success-color); }
+        .metric-card.warning::before { background: var(--warning-color); }
+        .metric-card.danger::before { background: var(--danger-color); }
+        .metric-card.info::before { background: var(--info-color); }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .metric-value.success { color: var(--success-color); }
+        .metric-value.warning { color: var(--warning-color); }
+        .metric-value.danger { color: var(--danger-color); }
+        .metric-value.info { color: var(--info-color); }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--gray-600);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-sublabel {
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            margin-top: 5px;
+        }
+
+        /* Section Styles */
+        .section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow-md);
+            position: relative;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--gray-100);
+            padding-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-subtitle {
+            color: var(--gray-600);
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+
+        .section-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Insights Grid */
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .insight-card {
+            padding: 30px;
+            border-radius: 16px;
+            border-left: 6px solid;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .insight-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 60px;
+            opacity: 0.1;
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .insight-card.issues {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-left-color: var(--danger-color);
+        }
+
+        .insight-card.recommendations {
+            background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+            border-left-color: var(--warning-color);
+        }
+
+        .insight-card.strengths {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            border-left-color: var(--success-color);
+        }
+
+        .insight-card.performance {
+            background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%);
+            border-left-color: var(--info-color);
+        }
+
+        .insight-card h4 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: var(--gray-800);
+            font-weight: 700;
+        }
+
+        .insight-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .insight-list li {
+            margin: 12px 0;
+            padding-left: 30px;
+            position: relative;
+            line-height: 1.6;
+            color: var(--gray-700);
+        }
+
+        .insight-list li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        /* Enhanced Tables */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .enhanced-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .enhanced-table thead {
+            background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+        }
+
+        .enhanced-table th {
+            padding: 20px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--gray-700);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.8rem;
+            border-bottom: 2px solid var(--gray-200);
+        }
+
+        .enhanced-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--gray-100);
+            vertical-align: middle;
+        }
+
+        .enhanced-table tbody tr:hover {
+            background: var(--gray-50);
+        }
+
+        .enhanced-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .url-cell {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .url-cell:hover {
+            color: var(--secondary-color);
+            text-decoration: underline;
+        }
+
+        /* Status and Progress Bars */
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-2xx { background: #dcfce7; color: var(--success-color); }
+        .status-3xx { background: #fef3c7; color: var(--warning-color); }
+        .status-4xx { background: #fee2e2; color: var(--danger-color); }
+        .status-5xx { background: #fecaca; color: #991b1b; }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary-color), var(--info-color));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .size-bar {
+            height: 6px;
+            background: linear-gradient(90deg, var(--info-color), var(--primary-color));
+            border-radius: 3px;
+            min-width: 2px;
+        }
+
+        /* Chart Styles */
+        .chart-container {
+            background: var(--gray-50);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px 0;
+            min-height: 300px;
+        }
+
+        .chart-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 30px;
+            color: var(--gray-800);
+        }
+
+        .chart-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chart-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 25px;
+            box-shadow: var(--shadow-sm);
+            font-weight: 500;
+        }
+
+        .chart-color-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Domain Performance Cards */
+        .domain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .domain-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .domain-card.high-impact {
+            border-left-color: var(--danger-color);
+        }
+
+        .domain-card.medium-impact {
+            border-left-color: var(--warning-color);
+        }
+
+        .domain-card.low-impact {
+            border-left-color: var(--success-color);
+        }
+
+        .domain-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--gray-800);
+            margin-bottom: 15px;
+        }
+
+        .domain-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 15px;
+        }
+
+        .domain-metric {
+            text-align: center;
+        }
+
+        .domain-metric-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .domain-metric-label {
+            font-size: 0.8rem;
+            color: var(--gray-600);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Priority Actions */
+        .priority-actions {
+            background: linear-gradient(135deg, #fee2e2 0%, #fed7d7 100%);
+            padding: 30px;
+            border-radius: 16px;
+            border-left: 6px solid var(--danger-color);
+            margin-top: 30px;
+        }
+
+        .priority-actions h4 {
+            color: var(--danger-color);
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .priority-actions .insight-list li {
+            color: var(--danger-color);
+            font-weight: 500;
+        }
+
+        /* Expandable Sections */
+        .expandable-section {
+            margin-top: 20px;
+        }
+
+        .expand-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 20px;
+            background: var(--gray-50);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .expand-toggle:hover {
+            background: var(--gray-100);
+            border-color: var(--primary-color);
+        }
+
+        .expand-toggle.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .expand-content {
+            display: none;
+            padding: 20px;
+            background: white;
+            border-radius: 0 0 12px 12px;
+            border: 1px solid var(--gray-200);
+            border-top: none;
+        }
+
+        .expand-content.active {
+            display: block;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--gray-600);
+            border-top: 2px solid var(--gray-200);
+            margin-top: 60px;
+        }
+
+        .footer h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--gray-800);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .performance-grade {
+                font-size: 3rem;
+            }
+
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+
+            .insights-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .domain-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Animation Classes */
+        .fade-in {
+            animation: fadeIn 0.6s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-up {
+            animation: slideUp 0.6s ease-in-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Premium Header -->
+        <div class="header fade-in">
+            <div class="header-content">
+                <h1>🚀 HAR Performance Analysis</h1>
+                <p>Premium Performance Report</p>
+                <div class="timestamp">Generated on {{ timestamp }}</div>
+            </div>
+        </div>
+
+        <!-- Performance Grade Showcase -->
+        <div class="grade-showcase slide-up">
+            <h2 style="font-size: 1.8rem; color: var(--gray-600); margin-bottom: 10px;">Overall Performance Grade</h2>
+            <div class="performance-grade grade-{{ performance_grade|lower }}">
+                {{ performance_grade }}
+            </div>
+            <div class="grade-description">
+                Based on comprehensive analysis of loading times, resource efficiency, and optimization opportunities
+            </div>
+            
+            <!-- Key Performance Indicators -->
+            <div class="metrics-grid">
+                <div class="metric-card {{ load_time_class }}">
+                    <div class="metric-value {{ load_time_class }}">{{ page_load_time }}</div>
+                    <div class="metric-label">Page Load Time</div>
+                    <div class="metric-sublabel">Target: &lt; 3 seconds</div>
+                </div>
+                <div class="metric-card {{ dom_time_class }}">
+                    <div class="metric-value {{ dom_time_class }}">{{ dom_ready_time }}</div>
+                    <div class="metric-label">DOM Ready Time</div>
+                    <div class="metric-sublabel">Target: &lt; 2 seconds</div>
+                </div>
+                <div class="metric-card {{ requests_class }}">
+                    <div class="metric-value {{ requests_class }}">{{ total_requests }}</div>
+                    <div class="metric-label">Total Requests</div>
+                    <div class="metric-sublabel">Target: &lt; 50 requests</div>
+                </div>
+                <div class="metric-card {{ failed_class }}">
+                    <div class="metric-value {{ failed_class }}">{{ failed_requests_count }}</div>
+                    <div class="metric-label">Failed Requests</div>
+                    <div class="metric-sublabel">Target: 0 failures</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Insights -->
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🔍 Performance Insights</h2>
+                    <p class="section-subtitle">Comprehensive analysis of performance bottlenecks and optimization opportunities</p>
+                </div>
+                <div class="section-badge">Analysis Complete</div>
+            </div>
+            
+            <div class="insights-grid">
+                {% if issues %}
+                <div class="insight-card issues">
+                    <h4>⚠️ Critical Issues</h4>
+                    <ul class="insight-list">
+                        {% for issue in issues %}
+                        <li>{{ issue }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if recommendations %}
+                <div class="insight-card recommendations">
+                    <h4>💡 Optimization Recommendations</h4>
+                    <ul class="insight-list">
+                        {% for rec in recommendations %}
+                        <li>{{ rec }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if strengths %}
+                <div class="insight-card strengths">
+                    <h4>✅ Performance Strengths</h4>
+                    <ul class="insight-list">
+                        {% for strength in strengths %}
+                        <li>{{ strength }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="insight-card performance">
+                    <h4>📊 Performance Summary</h4>
+                    <ul class="insight-list">
+                        <li>Total data transferred: {{ total_size_mb }} MB</li>
+                        <li>Average response time: {{ avg_response_time }} ms</li>
+                        <li>Third-party domains: {{ third_party_domains }}</li>
+                        <li>Blocking resources: {{ blocking_resources }}</li>
+                    </ul>
+                </div>
+            </div>
+
+            {% if priority_actions %}
+            <div class="priority-actions">
+                <h4>🚨 Priority Actions</h4>
+                <ul class="insight-list">
+                    {% for action in priority_actions %}
+                    <li>{{ action }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Resource Breakdown -->
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">📦 Resource Breakdown</h2>
+                    <p class="section-subtitle">Distribution of requests by resource type</p>
+                </div>
+                <div class="section-badge">{{ total_requests }} Resources</div>
+            </div>
+            
+            <div class="chart-container">
+                <h3 class="chart-title">Resource Types Distribution</h3>
+                <div class="chart-legend">
+                    {% for item in resource_chart_data %}
+                    <div class="chart-legend-item">
+                        <div class="chart-color-box" style="background: {{ item.color }};"></div>
+                        <span>{{ item.label }}: {{ item.value }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Third-Party Analysis -->
+        {% if third_party_analysis %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🔗 Third-Party Performance Impact</h2>
+                    <p class="section-subtitle">Detailed analysis of external service performance</p>
+                </div>
+                <div class="section-badge">{{ third_party_domains }} Domains</div>
+            </div>
+
+            <!-- Category Overview -->
+            <div class="metrics-grid">
+                {% for category, data in category_breakdown.items() %}
+                <div class="metric-card info">
+                    <div class="metric-value info">{{ data.domains }}</div>
+                    <div class="metric-label">{{ category|title }} Domains</div>
+                    <div class="metric-sublabel">{{ data.requests }} requests • {{ data.total_time|round }} ms</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- High Impact Domains -->
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('high-impact')">
+                    <h4>🔥 High Impact Domains</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="high-impact">
+                    <div class="domain-grid">
+                        {% for domain in high_impact_domains %}
+                        <div class="domain-card high-impact">
+                            <div class="domain-name">{{ domain.name }}</div>
+                            <div class="domain-metrics">
+                                <div class="domain-metric">
+                                    <div class="domain-metric-value">{{ domain.requests }}</div>
+                                    <div class="domain-metric-label">Requests</div>
+                                </div>
+                                <div class="domain-metric">
+                                    <div class="domain-metric-value">{{ domain.total_time|round }}ms</div>
+                                    <div class="domain-metric-label">Total Time</div>
+                                </div>
+                                <div class="domain-metric">
+                                    <div class="domain-metric-value">{{ domain.size_kb|round }}KB</div>
+                                    <div class="domain-metric-label">Size</div>
+                                </div>
+                                <div class="domain-metric">
+                                    <div class="domain-metric-value">{{ domain.category|title }}</div>
+                                    <div class="domain-metric-label">Category</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Network Performance Analysis -->
+        {% if dns_analysis %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🌐 Network Performance</h2>
+                    <p class="section-subtitle">DNS resolution and SSL handshake analysis</p>
+                </div>
+                <div class="section-badge">Network Analysis</div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card {{ dns_class }}">
+                    <div class="metric-value {{ dns_class }}">{{ avg_dns_time }}ms</div>
+                    <div class="metric-label">Average DNS Time</div>
+                    <div class="metric-sublabel">Target: &lt; 50ms</div>
+                </div>
+                <div class="metric-card {{ ssl_class }}">
+                    <div class="metric-value {{ ssl_class }}">{{ avg_ssl_time }}ms</div>
+                    <div class="metric-label">Average SSL Time</div>
+                    <div class="metric-sublabel">Target: &lt; 200ms</div>
+                </div>
+                <div class="metric-card info">
+                    <div class="metric-value info">{{ unique_domains }}</div>
+                    <div class="metric-label">Unique Domains</div>
+                    <div class="metric-sublabel">Connection overhead</div>
+                </div>
+                <div class="metric-card info">
+                    <div class="metric-value info">{{ connection_reuse }}%</div>
+                    <div class="metric-label">Connection Reuse</div>
+                    <div class="metric-sublabel">Efficiency metric</div>
+                </div>
+            </div>
+
+            <!-- Domain Performance Table -->
+            <div class="table-container">
+                <table class="enhanced-table">
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th>Requests</th>
+                            <th>DNS Time</th>
+                            <th>SSL Time</th>
+                            <th>Total Time</th>
+                            <th>Category</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for domain in domain_performance %}
+                        <tr>
+                            <td class="url-cell">{{ domain.name }}</td>
+                            <td>{{ domain.requests }}</td>
+                            <td>{{ domain.dns_time }}ms</td>
+                            <td>{{ domain.ssl_time }}ms</td>
+                            <td>{{ domain.total_time }}ms</td>
+                            <td><span class="status-badge status-2xx">{{ domain.category|title }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Largest Assets -->
+        {% if largest_assets %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">📏 Largest Assets</h2>
+                    <p class="section-subtitle">Resources with the highest impact on load time</p>
+                </div>
+                <div class="section-badge">Top {{ largest_assets|length }} Assets</div>
+            </div>
+            
+            <div class="table-container">
+                <table class="enhanced-table">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Size</th>
+                            <th>Type</th>
+                            <th>Impact</th>
+                            <th>Optimization</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asset in largest_assets %}
+                        <tr>
+                            <td class="url-cell" title="{{ asset.url }}">{{ asset.url|truncate(50) }}</td>
+                            <td>
+                                {{ asset.size_kb|round(1) }} KB
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: {{ (asset.size_kb / max_asset_size * 100)|round }}%;"></div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if asset.type %}
+                                <span class="status-badge status-2xx">{{ asset.type|title }}</span>
+                                {% else %}
+                                    {% if '.js' in asset.url %}
+                                    <span class="status-badge status-3xx">Script</span>
+                                    {% elif '.css' in asset.url %}
+                                    <span class="status-badge status-info">Stylesheet</span>
+                                    {% elif '.png' in asset.url or '.jpg' in asset.url or '.jpeg' in asset.url or '.gif' in asset.url or '.webp' in asset.url %}
+                                    <span class="status-badge status-success">Image</span>
+                                    {% elif '.woff' in asset.url or '.ttf' in asset.url or '.otf' in asset.url %}
+                                    <span class="status-badge status-warning">Font</span>
+                                    {% else %}
+                                    <span class="status-badge status-2xx">Asset</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if asset.size_kb > 5000 %}
+                                <span class="status-badge status-4xx">Critical</span>
+                                {% elif asset.size_kb > 1000 %}
+                                <span class="status-badge status-3xx">High</span>
+                                {% else %}
+                                <span class="status-badge status-2xx">Normal</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if asset.size_kb > 5000 %}
+                                Code splitting needed
+                                {% elif asset.size_kb > 1000 %}
+                                Compression recommended
+                                {% else %}
+                                Well optimized
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Slowest Requests -->
+        {% if slowest_requests %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🐌 Slowest Requests</h2>
+                    <p class="section-subtitle">Requests with the highest response times</p>
+                </div>
+                <div class="section-badge">{{ slowest_requests|length }} Slow Requests</div>
+            </div>
+            
+            <div class="table-container">
+                <table class="enhanced-table">
+                    <thead>
+                        <tr>
+                            <th>Request</th>
+                            <th>Response Time</th>
+                            <th>Impact Level</th>
+                            <th>Category</th>
+                            <th>Recommendation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in slowest_requests %}
+                        <tr>
+                            <td class="url-cell" title="{{ request.url }}">{{ request.url|truncate(50) }}</td>
+                            <td>
+                                {{ request.time_ms|round }} ms
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: {{ (request.time_ms / max_request_time * 100)|round }}%;"></div>
+                                </div>
+                            </td>
+                            <td>
+                                {% if request.time_ms > 5000 %}
+                                <span class="status-badge status-4xx">Critical</span>
+                                {% elif request.time_ms > 3000 %}
+                                <span class="status-badge status-3xx">High</span>
+                                {% else %}
+                                <span class="status-badge status-2xx">Medium</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.category %}
+                                <span class="status-badge status-2xx">{{ request.category|title }}</span>
+                                {% else %}
+                                    {% if 'googleads' in request.url or 'doubleclick' in request.url %}
+                                    <span class="status-badge status-warning">Advertising</span>
+                                    {% elif 'analytics' in request.url or 'gtm' in request.url or 'googletagmanager' in request.url %}
+                                    <span class="status-badge status-info">Analytics</span>
+                                    {% elif 'facebook' in request.url or 'pinterest' in request.url or 'youtube' in request.url %}
+                                    <span class="status-badge status-purple">Social</span>
+                                    {% elif '.js' in request.url %}
+                                    <span class="status-badge status-3xx">Script</span>
+                                    {% elif '.css' in request.url %}
+                                    <span class="status-badge status-info">Stylesheet</span>
+                                    {% else %}
+                                    <span class="status-badge status-2xx">Resource</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.time_ms > 5000 %}
+                                Consider removing or deferring
+                                {% elif request.time_ms > 3000 %}
+                                Optimize or cache response
+                                {% else %}
+                                Monitor performance
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Caching Analysis -->
+        {% if caching_analysis %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🔄 Caching Optimization</h2>
+                    <p class="section-subtitle">Resources with caching optimization opportunities</p>
+                </div>
+                <div class="section-badge">{{ no_cache_count }} Opportunities</div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card danger">
+                    <div class="metric-value danger">{{ no_cache_count }}</div>
+                    <div class="metric-label">No Cache Headers</div>
+                    <div class="metric-sublabel">Missing cache directives</div>
+                </div>
+                <div class="metric-card warning">
+                    <div class="metric-value warning">{{ short_cache_count }}</div>
+                    <div class="metric-label">Short Cache Duration</div>
+                    <div class="metric-sublabel">Could be cached longer</div>
+                </div>
+                <div class="metric-card success">
+                    <div class="metric-value success">{{ well_cached_count }}</div>
+                    <div class="metric-label">Well Cached</div>
+                    <div class="metric-sublabel">Properly optimized</div>
+                </div>
+                <div class="metric-card info">
+                    <div class="metric-value info">{{ potential_savings }}KB</div>
+                    <div class="metric-label">Potential Savings</div>
+                    <div class="metric-sublabel">With proper caching</div>
+                </div>
+            </div>
+
+            {% if no_cache_resources %}
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('no-cache')">
+                    <h4>❌ Resources without cache headers</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="no-cache">
+                    <div class="table-container">
+                        <table class="enhanced-table">
+                            <thead>
+                                <tr>
+                                    <th>Resource</th>
+                                    <th>Type</th>
+                                    <th>Size</th>
+                                    <th>Recommended Cache</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for resource in no_cache_resources %}
+                                <tr>
+                                    <td class="url-cell" title="{{ resource.url }}">{{ resource.url|truncate(50) }}</td>
+                                    <td><span class="status-badge status-2xx">{{ resource.type|title }}</span></td>
+                                    <td>{{ resource.size_kb|round(1) }} KB</td>
+                                    <td>
+                                        {% if resource.type == 'image' %}
+                                        max-age=31536000 (1 year)
+                                        {% elif resource.type == 'script' %}
+                                        max-age=31536000 (1 year)
+                                        {% elif resource.type == 'document' %}
+                                        max-age=3600 (1 hour)
+                                        {% else %}
+                                        max-age=86400 (1 day)
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Failed Requests -->
+        {% if failed_requests %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">❌ Failed Requests</h2>
+                    <p class="section-subtitle">Requests that failed to load successfully</p>
+                </div>
+                <div class="section-badge">{{ failed_requests_count }} Failures</div>
+            </div>
+            
+            <div class="table-container">
+                <table class="enhanced-table">
+                    <thead>
+                        <tr>
+                            <th>Request</th>
+                            <th>Status Code</th>
+                            <th>Error Type</th>
+                            <th>Impact</th>
+                            <th>Resolution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in failed_requests %}
+                        <tr>
+                            <td class="url-cell" title="{{ request.url }}">{{ request.url|truncate(50) }}</td>
+                            <td>
+                                <span class="status-badge status-{{ request.status|string|slice(0,1) }}xx">
+                                    {{ request.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if request.status == 403 %}
+                                Access Denied
+                                {% elif request.status == 404 %}
+                                Not Found
+                                {% elif request.status == 500 %}
+                                Server Error
+                                {% else %}
+                                Network Error
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.status >= 500 %}
+                                <span class="status-badge status-4xx">Critical</span>
+                                {% elif request.status >= 400 %}
+                                <span class="status-badge status-3xx">High</span>
+                                {% else %}
+                                <span class="status-badge status-2xx">Medium</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.status == 403 %}
+                                Check API permissions
+                                {% elif request.status == 404 %}
+                                Verify URL or remove reference
+                                {% elif request.status == 500 %}
+                                Contact service provider
+                                {% else %}
+                                Investigate network issues
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Performance Recommendations Summary -->
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🎯 Action Plan</h2>
+                    <p class="section-subtitle">Prioritized recommendations for maximum performance impact</p>
+                </div>
+                <div class="section-badge">Performance Roadmap</div>
+            </div>
+
+            <div class="insights-grid">
+                <div class="insight-card issues">
+                    <h4>🔥 Immediate Actions (High Priority)</h4>
+                    <ul class="insight-list">
+                        <li>Optimize largest assets ({{ largest_assets[0].size_kb|round }}KB asset detected)</li>
+                        <li>Fix {{ failed_requests_count }} failed request(s)</li>
+                        <li>Implement caching for {{ no_cache_count }} resources</li>
+                        <li>Reduce third-party impact from {{ high_impact_domains|length }} domains</li>
+                    </ul>
+                </div>
+
+                <div class="insight-card recommendations">
+                    <h4>⚡ Quick Wins (Medium Priority)</h4>
+                    <ul class="insight-list">
+                        <li>Enable compression for compressible resources</li>
+                        <li>Defer non-critical JavaScript execution</li>
+                        <li>Optimize image formats and sizes</li>
+                        <li>Implement resource bundling for small assets</li>
+                    </ul>
+                </div>
+
+                <div class="insight-card performance">
+                    <h4>🚀 Long-term Optimizations</h4>
+                    <ul class="insight-list">
+                        <li>Implement service worker for offline caching</li>
+                        <li>Use CDN for static assets</li>
+                        <li>Enable HTTP/2 server push</li>
+                        <li>Implement lazy loading for images</li>
+                    </ul>
+                </div>
+
+                <div class="insight-card strengths">
+                    <h4>📊 Performance Monitoring</h4>
+                    <ul class="insight-list">
+                        <li>Set up Real User Monitoring (RUM)</li>
+                        <li>Create performance budgets</li>
+                        <li>Monitor Core Web Vitals</li>
+                        <li>Regular performance audits</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <h3>HAR-ANALYZE Performance Analysis Tool</h3>
+            <p>Premium Template • Report generated on {{ timestamp }}</p>
+            <p style="font-size: 0.9rem; margin-top: 10px; color: var(--gray-500);">
+                For detailed analysis and recommendations, visit our documentation
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced interactivity
+        function toggleExpand(id) {
+            const content = document.getElementById(id);
+            const toggle = content.previousElementSibling;
+            const icon = toggle.querySelector('.expand-icon');
+            
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
+                toggle.classList.remove('active');
+                icon.textContent = '▼';
+            } else {
+                content.classList.add('active');
+                toggle.classList.add('active');
+                icon.textContent = '▲';
+            }
+        }
+
+        // Add smooth scrolling animation
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('.section, .grade-showcase');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.animation = 'fadeIn 0.6s ease-in-out';
+                    }
+                });
+            });
+
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+        });
+
+        // Add tooltip functionality for long URLs
+        document.querySelectorAll('.url-cell').forEach(cell => {
+            cell.addEventListener('mouseenter', function() {
+                if (this.offsetWidth < this.scrollWidth) {
+                    this.setAttribute('title', this.textContent);
+                }
+            });
+        });
+
+        // Enhanced table sorting
+        document.querySelectorAll('table th').forEach(th => {
+            th.style.cursor = 'pointer';
+            th.addEventListener('click', function() {
+                const table = this.closest('table');
+                const tbody = table.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                const columnIndex = Array.from(this.parentNode.children).indexOf(this);
+                
+                const isAscending = this.classList.contains('sort-asc');
+                
+                // Remove sort classes from all headers
+                table.querySelectorAll('th').forEach(header => {
+                    header.classList.remove('sort-asc', 'sort-desc');
+                });
+                
+                // Add appropriate sort class
+                this.classList.add(isAscending ? 'sort-desc' : 'sort-asc');
+                
+                // Sort rows
+                rows.sort((a, b) => {
+                    const aValue = a.children[columnIndex].textContent.trim();
+                    const bValue = b.children[columnIndex].textContent.trim();
+                    
+                    // Try to parse as numbers
+                    const aNum = parseFloat(aValue.replace(/[^\d.-]/g, ''));
+                    const bNum = parseFloat(bValue.replace(/[^\d.-]/g, ''));
+                    
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return isAscending ? aNum - bNum : bNum - aNum;
+                    } else {
+                        return isAscending 
+                            ? aValue.localeCompare(bValue) 
+                            : bValue.localeCompare(aValue);
+                    }
+                });
+                
+                // Re-append sorted rows
+                rows.forEach(row => tbody.appendChild(row));
+            });
+        });
+
+        // Add progress bar animations
+        document.addEventListener('DOMContentLoaded', function() {
+            const progressBars = document.querySelectorAll('.progress-fill');
+            progressBars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 500);
+            });
+        });
+    </script>
+</body>
+</html>
