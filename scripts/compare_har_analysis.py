@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-HAR Comparison Analysis - Compare Two HAR Chunks
-================================================
-This script analyzes two structured HAR breakdowns (base vs target) to identify
-performance changes, resource deltas, and generate comparison insights.
+HAR Comparison Analysis - Compare Two HAR Files
+===============================================
+This script analyzes two structured HAR breakdowns (baseline vs target) to identify
+performance changes, resource deltas, and generate detailed comparison insights.
 
 Features:
 - Resource deltas (added/removed/modified URLs)
 - KPI changes (load time, size, request count)
-- Endpoint timing comparisons
+- Endpoint timing comparisons  
 - Resource type aggregations
 - Performance regression detection
+- Comparison summary generation
 """
 
 import json
@@ -30,14 +31,14 @@ def compare_har_chunks(base_data: Dict[str, Any], target_data: Dict[str, Any]) -
     Returns:
         Dictionary containing comprehensive comparison analysis
     """
-    print("🔄 Analyzing HAR comparison...")
+    print("[INFO] Analyzing HAR comparison...")
     
     # Extract basic info
     base_name = base_data['metadata']['file_name']
     target_name = target_data['metadata']['file_name']
     
-    print(f"📊 Base: {base_name} ({base_data['totals']['total_requests']} requests)")
-    print(f"📊 Target: {target_name} ({target_data['totals']['total_requests']} requests)")
+    print(f"[BASE] Base: {base_name} ({base_data['totals']['total_requests']} requests)")
+    print(f"[TARGET] Target: {target_name} ({target_data['totals']['total_requests']} requests)")
     
     # Perform comprehensive comparison
     comparison = {
@@ -512,13 +513,13 @@ def save_comparison_analysis(comparison: Dict[str, Any], output_file: str = None
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(comparison, f, indent=2, ensure_ascii=False)
     
-    print(f"💾 Comparison analysis saved to: {output_file}")
+    print(f"[SAVE] Comparison analysis saved to: {output_file}")
     return output_file
 
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Compare two HAR chunk analyses")
+    parser = argparse.ArgumentParser(description="Compare two HAR file analyses")
     parser.add_argument('--base', required=True, help='Base HAR breakdown JSON file')
     parser.add_argument('--target', required=True, help='Target HAR breakdown JSON file')
     parser.add_argument('--output', help='Output comparison JSON file')
@@ -542,12 +543,12 @@ if __name__ == "__main__":
         
         # Print summary
         summary = comparison['summary']
-        print(f"\n🎯 Comparison Summary:")
+        print(f"\n[SUMMARY] Comparison Summary:")
         print(f"   Status: {summary['overall_status'].upper()}")
         print(f"   Risk Level: {summary['risk_level'].upper()}")
         for finding in summary['key_findings']:
-            print(f"   • {finding}")
+            print(f"   - {finding}")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[ERROR] Error: {e}")
         exit(1)

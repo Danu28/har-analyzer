@@ -3,14 +3,16 @@
 HAR Comparison Report Generator
 ==============================
 This script generates comprehensive HTML comparison reports from HAR comparison analysis data.
-Uses Jinja2 templating to create professional, interactive reports with charts and detailed insights.
+Creates professional, interactive reports with charts and detailed performance insights
+for comparing two HAR file analyses.
 
 Features:
-- HTML report generation from comparison data
+- HTML report generation from comparison analysis data
 - Interactive charts and visualizations
 - Professional styling and responsive design
-- Actionable performance insights
+- Actionable performance insights and recommendations
 - Detailed resource analysis tables
+- Side-by-side comparison views
 """
 
 import json
@@ -38,7 +40,7 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
     Returns:
         Path to generated HTML report
     """
-    print("📄 Generating HAR comparison report...")
+    print("[INFO] Generating HAR comparison report...")
     
     # Set default output file
     if not output_file:
@@ -51,7 +53,7 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
     
     # Try to use external template first, then fall back to built-in
     if template_file and os.path.exists(template_file):
-        print(f"🎨 Using custom template: {template_file}")
+        print(f"[TEMPLATE] Using custom template: {template_file}")
         template_content = _load_template_file(template_file)
     else:
         # Check for style-specific template in templates directory
@@ -59,16 +61,16 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
         default_template = Path(__file__).parent.parent / "templates" / template_filename
         
         if default_template.exists():
-            print(f"🎨 Using {template_style} template: {default_template}")
+            print(f"[TEMPLATE] Using {template_style} template: {default_template}")
             template_content = _load_template_file(str(default_template))
         else:
             # Fall back to original detailed template
             fallback_template = Path(__file__).parent.parent / "templates" / "har_comparison_expected.html"
             if fallback_template.exists():
-                print(f"🎨 Using fallback template: {fallback_template}")
+                print(f"[TEMPLATE] Using fallback template: {fallback_template}")
                 template_content = _load_template_file(str(fallback_template))
             else:
-                print("🎨 Using built-in template")
+                print("[TEMPLATE] Using built-in template")
                 template_content = _get_builtin_template()
     
     # Process and validate comparison data
@@ -80,10 +82,10 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
         template = Template(template_content, undefined=DebugUndefined)
         html_content = template.render(**processed_data)
     except ImportError:
-        print("⚠️  Jinja2 not found, using simple template replacement")
+        print("[WARNING] Jinja2 not found, using simple template replacement")
         html_content = _render_simple_template(template_content, processed_data)
     except Exception as e:
-        print(f"⚠️  Jinja2 template error: {e}")
+        print(f"[WARNING] Jinja2 template error: {e}")
         print("   Falling back to simple template replacement")
         html_content = _render_simple_template(template_content, processed_data)
     
@@ -92,15 +94,15 @@ def generate_comparison_report(comparison_data: Dict[str, Any],
         f.write(html_content)
     
     file_size = os.path.getsize(output_file) / 1024
-    print(f"✅ Report generated: {output_file} ({file_size:.1f} KB)")
+    print(f"[SUCCESS] Report generated: {output_file} ({file_size:.1f} KB)")
     
     # Open in browser if requested
     if open_browser:
         try:
             webbrowser.open(f"file://{os.path.abspath(output_file)}")
-            print("🌐 Report opened in browser")
+            print("[BROWSER] Report opened in browser")
         except Exception as e:
-            print(f"⚠️  Could not open browser: {e}")
+            print(f"[WARNING] Could not open browser: {e}")
     
     return output_file
 
@@ -110,7 +112,7 @@ def _load_template_file(template_path: str) -> str:
         with open(template_path, 'r', encoding='utf-8') as f:
             return f.read()
     except Exception as e:
-        print(f"⚠️  Could not load template {template_path}: {e}")
+        print(f"[WARNING] Could not load template {template_path}: {e}")
         return _get_builtin_template()
 
 def _process_comparison_data(comparison_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -195,7 +197,7 @@ def _render_simple_template(template_content: str, data: Dict[str, Any]) -> str:
     # Add warning about limited functionality
     warning = '''
     <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 8px;">
-        <strong>⚠️ Limited Report:</strong> This report was generated without Jinja2 template engine. 
+        <strong>WARNING - Limited Report:</strong> This report was generated without Jinja2 template engine. 
         Install Jinja2 for full functionality: <code>pip install jinja2</code>
     </div>
     '''
@@ -311,7 +313,7 @@ def _get_builtin_template() -> str:
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔄 HAR Performance Comparison</h1>
+            <h1>HAR Performance Comparison</h1>
             <p>{{ metadata.base_file }} vs {{ metadata.target_file }}</p>
         </div>
         
@@ -407,7 +409,7 @@ def create_comparison_workflow(base_har: str, target_har: str, output_dir: str =
     break_har.save_broken_har_data(target_data, target_breakdown_dir)
     
     # Step 3: Compare the two
-    print("\n🔄 Step 3: Analyzing comparison...")
+    print("\n[STEP 3] Analyzing comparison...")
     comparison = analyze_two_chunks.compare_har_chunks(base_data, target_data)
     
     # Save comparison analysis
@@ -415,11 +417,11 @@ def create_comparison_workflow(base_har: str, target_har: str, output_dir: str =
     analyze_two_chunks.save_comparison_analysis(comparison, comparison_file)
     
     # Step 4: Generate HTML report
-    print("\n📄 Step 4: Generating HTML report...")
+    print("\n[STEP 4] Generating HTML report...")
     report_file = os.path.join(output_dir, "comparison_report.html")
     generate_comparison_report(comparison, report_file)
     
-    print(f"\n✅ Workflow complete! Output directory: {output_dir}")
+    print(f"\n[SUCCESS] Workflow complete! Output directory: {output_dir}")
     return report_file
 
 if __name__ == "__main__":
@@ -466,7 +468,7 @@ if __name__ == "__main__":
                 not args.no_browser
             )
             
-            print(f"📄 Report: {report_file}")
+            print(f"[REPORT] Report: {report_file}")
             
         elif args.mode == 'workflow':
             # Run complete workflow
@@ -476,8 +478,8 @@ if __name__ == "__main__":
                 args.output_dir
             )
             
-            print(f"📄 Final report: {report_file}")
+            print(f"[FINAL] Final report: {report_file}")
             
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[ERROR] Error: {e}")
         exit(1)

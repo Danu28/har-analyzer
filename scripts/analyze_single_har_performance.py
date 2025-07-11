@@ -1,16 +1,17 @@
 """
-Python script equivalent of analyze_performance.ps1
-- Reads HAR summary and header JSON files
-- Analyzes and prints performance metrics, timing, errors, resource breakdown, third-party impact, and recommendations
-- Uses only standard libraries
+Single HAR Performance Analysis
+===============================
+Analyzes performance metrics from a single HAR file breakdown.
+Reads HAR summary and header JSON files to generate comprehensive performance insights.
+
+Purpose: Single HAR file analysis workflow (not comparison)
+Generates agent_summary.json for report generation.
+Uses only standard libraries for maximum compatibility.
 """
 import os
 import sys
 import json
 from pathlib import Path
-
-print("DEBUG: analyze_performance.py module being imported/executed")
-print(f"DEBUG: __name__ = {__name__}")
 
 # --- Helper functions ---
 def print_info(msg):
@@ -641,7 +642,7 @@ def analyze_enhanced_third_party(requests):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Advanced HAR Analysis (Python)")
+    parser = argparse.ArgumentParser(description="Single HAR Performance Analysis")
     parser.add_argument('--har', dest='har_file', default=None, help='Path to HAR file')
     parser.add_argument('--input', dest='input_dir', default=None, help='Input directory (har_chunks/<basename>)')
     args = parser.parse_args()

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-HAR Breaking Logic - Reusable Component for HAR Analysis
-========================================================
-This module provides reusable functions to break down HAR files into structured data
-suitable for comparison analysis and performance evaluation.
+HAR Breaking Logic for Comparison Analysis
+==========================================
+This module provides specialized functions to break down HAR files into structured data
+optimized for comparison analysis between multiple HAR files.
 
 Features:
-- Extract requests with timings, sizes, and resource types
+- Extract requests with timings, sizes, and resource types for comparison
 - Organize data by resource type (JS, CSS, images, etc.)
-- Calculate key performance metrics
-- Prepare data for comparison analysis
+- Calculate key performance metrics suitable for comparison
+- Prepare standardized data structure for HAR comparison workflows
 """
 
 import json
@@ -28,7 +28,7 @@ def extract_har_data(har_file_path: str) -> Dict[str, Any]:
     Returns:
         Dictionary containing structured HAR data with metrics
     """
-    print(f"🔍 Breaking down HAR: {Path(har_file_path).name}")
+    print(f"[INFO] Breaking down HAR: {Path(har_file_path).name}")
     
     try:
         with open(har_file_path, 'r', encoding='utf-8') as f:
@@ -152,7 +152,7 @@ def extract_har_data(har_file_path: str) -> Dict[str, Any]:
         }
     }
     
-    print(f"✅ Processed {len(requests)} requests across {len(resource_types)} resource types")
+    print(f"[OK] Processed {len(requests)} requests across {len(resource_types)} resource types")
     return structured_data
 
 def _determine_resource_type(url: str, mime_type: str, har_resource_type: Optional[str] = None) -> str:
@@ -295,13 +295,13 @@ def save_broken_har_data(broken_data: Dict[str, Any], output_dir: str) -> str:
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
     
-    print(f"💾 Saved broken HAR data to: {output_dir}")
+    print(f"[SAVED] Saved broken HAR data to: {output_dir}")
     return output_dir
 
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Break down HAR files for analysis")
+    parser = argparse.ArgumentParser(description="Break down HAR files for comparison analysis")
     parser.add_argument('--har', required=True, help='Path to HAR file')
     parser.add_argument('--output', help='Output directory (default: har_breakdown_<filename>)')
     
@@ -319,10 +319,10 @@ if __name__ == "__main__":
         # Save to files
         output_dir = save_broken_har_data(broken_data, args.output)
         
-        print(f"✅ HAR breakdown complete!")
-        print(f"📊 Total requests: {broken_data['totals']['total_requests']}")
-        print(f"📁 Output: {output_dir}")
+        print(f"[OK] HAR breakdown complete!")
+        print(f"[INFO] Total requests: {broken_data['totals']['total_requests']}")
+        print(f"[INFO] Output: {output_dir}")
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"[ERROR] Error: {e}")
         exit(1)

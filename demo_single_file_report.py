@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-Interactive Demo script to showcase the fixed premium template
-Allows user to select HAR file and automatically runs analysis steps
+Demo: Single HAR File Analysis
+===============================
+Interactive demo script for single HAR file performance analysis.
+Allows user to select HAR file and automatically runs the complete analysis workflow.
+
+Scripts used:
+- scripts/break_har_for_single_analysis.py
+- scripts/analyze_single_har_performance.py  
+- scripts/generate_single_har_report.py
 """
 import subprocess
 import sys
@@ -45,7 +52,7 @@ def run_analysis_steps(base_dir, har_file):
     
     # Step 1: Break HAR file
     print("📋 Step 1: Breaking HAR file into chunks...")
-    cmd1 = [sys.executable, "scripts/break_har_file.py", "--har", str(har_file)]
+    cmd1 = [sys.executable, "scripts/break_har_for_single_analysis.py", "--har", str(har_file)]
     
     try:
         result1 = subprocess.run(cmd1, capture_output=True, text=True, cwd=base_dir)
@@ -56,12 +63,12 @@ def run_analysis_steps(base_dir, har_file):
             print(result1.stderr)
             return False
     except Exception as e:
-        print(f"❌ Error running break_har_file.py: {e}")
+        print(f"❌ Error running break_har_for_single_analysis.py: {e}")
         return False
     
     # Step 2: Analyze performance
     print("📊 Step 2: Analyzing performance...")
-    cmd2 = [sys.executable, "scripts/analyze_performance.py", "--input", str(chunk_dir)]
+    cmd2 = [sys.executable, "scripts/analyze_single_har_performance.py", "--input", str(chunk_dir)]
     
     try:
         result2 = subprocess.run(cmd2, capture_output=True, text=True, cwd=base_dir)
@@ -73,7 +80,7 @@ def run_analysis_steps(base_dir, har_file):
             print(result2.stderr)
             return False
     except Exception as e:
-        print(f"❌ Error running analyze_performance.py: {e}")
+        print(f"❌ Error running analyze_single_har_performance.py: {e}")
         return False
 
 def main():
@@ -120,7 +127,12 @@ def main():
     # Prepare paths for report generation
     har_name = selected_har.stem
     analysis_file = base_dir / "har_chunks" / har_name / "agent_summary.json"
-    output_file = base_dir / "reports" / f"{har_name}_premium_demo.html"
+    
+    # Create reports directory if it doesn't exist
+    reports_dir = base_dir / "reports"
+    reports_dir.mkdir(exist_ok=True)
+    
+    output_file = reports_dir / f"{har_name}_premium_demo.html"
     
     if not analysis_file.exists():
         print("❌ Error: Analysis file not found after analysis!")

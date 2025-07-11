@@ -1,9 +1,12 @@
 
 """
-Python script equivalent of break_har_file.ps1
-- Breaks a HAR file into header, summary, chunks, resource type files, and index/guide
-- Uses only standard libraries
-- Minimal, linear, and easy to debug
+HAR File Breakdown for Single Analysis
+======================================
+Breaks a HAR file into manageable chunks for single file performance analysis.
+Creates header, summary, chunks, resource type files, and index/guide.
+
+Purpose: Single HAR file analysis workflow (not comparison)
+Uses only standard libraries for maximum compatibility.
 """
 import os
 import sys
@@ -205,7 +208,7 @@ def main(har_file=None, output_dir=None):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description="Break HAR file into chunks and summaries")
+    parser = argparse.ArgumentParser(description="Break HAR file into chunks for single analysis")
     parser.add_argument('--har', dest='har_file', default=None, help='Path to HAR file')
     parser.add_argument('--output', dest='output_dir', default=None, help='Output directory for chunks')
     args = parser.parse_args()
