@@ -432,11 +432,19 @@ def analyze_caching(requests):
                 'issues': cache_issues
             }
     
+    # Calculate potential savings from caching
+    total_no_cache_size = sum(res.get('size', 0) for res in no_cache)
+    total_short_cache_size = sum(res.get('size', 0) for res in short_cache)
+    
+    # Convert to KB and round
+    total_potential_savings_kb = round((total_no_cache_size + total_short_cache_size) / 1024, 1)
+    
     return {
         'no_cache_resources': no_cache[:10],  # Limit to top 10
         'short_cache_resources': short_cache[:10],
         'well_cached_count': len(good_cache),
-        'cache_optimization_count': len(no_cache) + len(short_cache)
+        'cache_optimization_count': len(no_cache) + len(short_cache),
+        'total_potential_savings_kb': total_potential_savings_kb
     }
 
 def analyze_dns_connection_timing(requests):

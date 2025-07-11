@@ -177,6 +177,9 @@ def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     processed['max_asset_size'] = max([asset.get('size_kb', 0) for asset in processed['largest_assets']], default=1)
     processed['max_request_time'] = max([req.get('time_ms', 0) for req in processed['slowest_requests']], default=1)
     
+    # Generate Performance Insights
+    processed['performance_insights'] = _generate_performance_insights(processed)
+    
     # Calculate summary metrics
     largest_assets = processed['largest_assets']
     total_asset_size = sum([asset.get('size_kb', 0) for asset in largest_assets])
@@ -334,86 +337,114 @@ def _calculate_performance_grade(data: Dict[str, Any]) -> str:
         return "F"
 
 def _generate_performance_insights(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate performance insights and recommendations"""
+    """Generate performance insights, issues, recommendations, and priority actions"""
+    
     performance_summary = data.get('performance_summary', {})
     critical_issues = data.get('critical_issues', {})
-    
-    insights = {
-        'issues': [],
-        'recommendations': [],
-        'strengths': [],
-        'priority_actions': []
-    }
+    caching_analysis = data.get('caching_analysis', {})
+    third_party_analysis = data.get('enhanced_third_party_analysis', {})
     
     # Extract timing values
     page_load_time = performance_summary.get('page_load_time', '0s')
     dom_ready_time = performance_summary.get('dom_ready_time', '0s')
-    load_time_sec = float(page_load_time.replace('s', '')) if 's' in str(page_load_time) else 0
-    dom_time_sec = float(dom_ready_time.replace('s', '')) if 's' in str(dom_ready_time) else 0
+    
+    # Convert to seconds
+    try:
+        load_time_sec = float(str(page_load_time).replace('s', '')) if 's' in str(page_load_time) else float(str(page_load_time))
+    except (ValueError, TypeError):
+        load_time_sec = 0
+    
+    try:
+        dom_time_sec = float(str(dom_ready_time).replace('s', '')) if 's' in str(dom_ready_time) else float(str(dom_ready_time))
+    except (ValueError, TypeError):
+        dom_time_sec = 0
     
     total_requests = performance_summary.get('total_requests', 0)
-    total_size = performance_summary.get('total_size_mb', 0)
-    failed_requests = len(data.get('failed_requests', []))
+    failed_requests = critical_issues.get('failed_requests', 0)
+    very_slow_requests = critical_issues.get('very_slow_requests', 0)
     
-    # Analyze load times
+    # Generate critical issues
+    issues = []
     if load_time_sec > 10:
-        insights['issues'].append("Critical: Page load time exceeds 10 seconds")
-        insights['priority_actions'].append("Implement aggressive code splitting and lazy loading")
+        issues.append(f"Critical: Page load time exceeds 10 seconds")
     elif load_time_sec > 5:
-        insights['issues'].append("Poor: Page load time exceeds 5 seconds")
-        insights['recommendations'].append("Optimize bundle sizes and critical rendering path")
-    elif load_time_sec < 3:
-        insights['strengths'].append("Good: Page load time is under 3 seconds")
+        issues.append(f"Warning: Page load time exceeds 5 seconds")
     
-    # Analyze DOM ready time
     if dom_time_sec > 5:
-        insights['issues'].append("Critical: DOM ready time exceeds 5 seconds")
-        insights['priority_actions'].append("Minimize blocking JavaScript and CSS")
+        issues.append(f"Critical: DOM ready time exceeds 5 seconds")
     elif dom_time_sec > 2:
-        insights['issues'].append("Warning: DOM ready time exceeds 2 seconds")
-        insights['recommendations'].append("Defer non-critical scripts and optimize CSS delivery")
+        issues.append(f"Warning: DOM ready time exceeds 2 seconds")
     
-    # Analyze request count
     if total_requests > 100:
-        insights['issues'].append(f"Excessive requests: {total_requests} total requests")
-        insights['priority_actions'].append("Bundle assets and implement resource consolidation")
+        issues.append(f"Critical request count: {total_requests} requests")
     elif total_requests > 50:
-        insights['issues'].append(f"High request count: {total_requests} requests")
-        insights['recommendations'].append("Consider bundling smaller assets together")
-    elif total_requests < 30:
-        insights['strengths'].append("Good: Reasonable number of HTTP requests")
+        issues.append(f"High request count: {total_requests} requests")
     
-    # Analyze total size
-    if total_size > 10:
-        insights['issues'].append(f"Large page size: {total_size:.1f}MB total")
-        insights['priority_actions'].append("Implement image optimization and code splitting")
-    elif total_size > 5:
-        insights['issues'].append(f"Heavy page: {total_size:.1f}MB total")
-        insights['recommendations'].append("Optimize images and remove unused dependencies")
+    if failed_requests > 0:
+        issues.append(f"Some failed requests: {failed_requests} failures")
     
-    # Analyze failed requests
-    if failed_requests > 10:
-        insights['issues'].append(f"Many failed requests: {failed_requests} failures")
-        insights['priority_actions'].append("Fix or remove broken dependencies")
-    elif failed_requests > 0:
-        insights['issues'].append(f"Some failed requests: {failed_requests} failures")
-        insights['recommendations'].append("Review and fix failing requests")
-    else:
-        insights['strengths'].append("Excellent: No failed requests")
+    if very_slow_requests > 20:
+        issues.append(f"Too many slow requests: {very_slow_requests} requests >1s")
     
-    # Analyze compression opportunities
-    compression_data = data.get('compression_analysis', {})
-    compression_opportunities = compression_data.get('compression_opportunity_count', 0)
-    if compression_opportunities > 5:
-        insights['recommendations'].append(f"Enable compression for {compression_opportunities} resources")
+    # Generate recommendations
+    recommendations = []
+    if total_requests > 50:
+        recommendations.append("Consider bundling smaller assets together")
     
-    # Analyze caching opportunities
-    caching_data = data.get('caching_analysis', {})
-    no_cache_count = len(caching_data.get('no_cache_resources', []))
-    if no_cache_count > 5:
-        insights['recommendations'].append(f"Add cache headers to {no_cache_count} resources")
+    if failed_requests > 0:
+        recommendations.append("Review and fix failing requests")
     
-    return insights
+    no_cache_count = len(caching_analysis.get('no_cache_resources', []))
+    if no_cache_count > 0:
+        recommendations.append(f"Add cache headers to {no_cache_count} resources")
+    
+    if very_slow_requests > 10:
+        recommendations.append("Optimize slow-loading resources")
+    
+    # Check for large assets
+    largest_assets = data.get('largest_assets', [])
+    large_assets = [asset for asset in largest_assets if asset.get('size_kb', 0) > 1000]
+    if large_assets:
+        recommendations.append(f"Consider code splitting for {len(large_assets)} large assets")
+    
+    # Generate strengths (things going well)
+    strengths = []
+    if failed_requests == 0:
+        strengths.append("No failed requests detected")
+    
+    if load_time_sec < 3:
+        strengths.append("Excellent page load time")
+    elif load_time_sec < 5:
+        strengths.append("Good page load time")
+    
+    if total_requests < 50:
+        strengths.append("Reasonable number of requests")
+    
+    compression_analysis = data.get('compression_analysis', {})
+    if compression_analysis.get('compression_opportunity_count', 0) == 0:
+        strengths.append("Good compression utilization")
+    
+    # Generate priority actions
+    priority_actions = []
+    if load_time_sec > 10 and len(large_assets) > 0:
+        priority_actions.append("Implement aggressive code splitting and lazy loading")
+    
+    blocking_count = len(third_party_analysis.get('blocking_third_parties', []))
+    if blocking_count > 5:
+        priority_actions.append("Minimize blocking JavaScript and CSS")
+    
+    if very_slow_requests > 30:
+        priority_actions.append("Investigate and optimize slowest resources immediately")
+    
+    if no_cache_count > 10:
+        priority_actions.append("Implement comprehensive caching strategy")
+    
+    return {
+        'issues': issues,
+        'recommendations': recommendations,
+        'strengths': strengths,
+        'priority_actions': priority_actions
+    }
 
 def _generate_chart_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """Generate data for charts and visualizations"""
