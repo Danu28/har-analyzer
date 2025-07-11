@@ -454,6 +454,11 @@ def analyze_dns_connection_timing(requests):
     connection_times = []
     domains = {}
     
+    # Track connection reuse
+    total_requests = len(requests)
+    reused_connections = 0
+    new_connections = 0
+    
     for req in requests:
         timings = req.get('timings', {})
         dns_time = timings.get('dns', -1)
@@ -479,6 +484,14 @@ def analyze_dns_connection_timing(requests):
         domains[domain]['requests'] += 1
         domains[domain]['total_time'] += req.get('time', 0)
         
+        # Connection reuse analysis
+        # If connect_time is 0 or very small (< 10ms), likely reused connection
+        if connect_time >= 0:
+            if connect_time < 10:  # Connection was reused
+                reused_connections += 1
+            else:  # New connection established
+                new_connections += 1
+        
         if dns_time >= 0:
             dns_times.append({'url': req['url'], 'dns_time': dns_time, 'domain': domain})
             domains[domain]['dns_times'].append(dns_time)
@@ -490,6 +503,13 @@ def analyze_dns_connection_timing(requests):
         if connect_time >= 0:
             connection_times.append({'url': req['url'], 'connect_time': connect_time, 'domain': domain})
             domains[domain]['connect_times'].append(connect_time)
+    
+    # Calculate connection reuse efficiency
+    total_connection_data = reused_connections + new_connections
+    if total_connection_data > 0:
+        connection_reuse_percentage = round((reused_connections / total_connection_data) * 100, 1)
+    else:
+        connection_reuse_percentage = 0
     
     # Calculate domain-level statistics
     domain_stats = []
@@ -519,7 +539,11 @@ def analyze_dns_connection_timing(requests):
         'slow_dns_resolutions': sorted(slow_dns, key=lambda x: x['dns_time'], reverse=True)[:5],
         'slow_ssl_handshakes': sorted(slow_ssl, key=lambda x: x['ssl_time'], reverse=True)[:5],
         'avg_dns_time': round(sum(item['dns_time'] for item in dns_times) / len(dns_times), 1) if dns_times else "N/A",
-        'avg_ssl_time': round(sum(item['ssl_time'] for item in ssl_times) / len(ssl_times), 1) if ssl_times else "N/A"
+        'avg_ssl_time': round(sum(item['ssl_time'] for item in ssl_times) / len(ssl_times), 1) if ssl_times else "N/A",
+        'connection_reuse_percentage': connection_reuse_percentage,
+        'reused_connections': reused_connections,
+        'new_connections': new_connections,
+        'total_connection_requests': total_connection_data
     }
 
 def analyze_enhanced_third_party(requests):

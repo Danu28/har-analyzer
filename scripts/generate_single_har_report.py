@@ -255,7 +255,19 @@ def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     ]
     
     processed['unique_domains'] = len(domain_performance)
-    processed['connection_reuse'] = 85  # Placeholder calculation
+    processed['connection_reuse'] = dns_analysis.get('connection_reuse_percentage', 0)
+    
+    # Connection reuse analysis with color coding and insights
+    connection_reuse = processed['connection_reuse']
+    if connection_reuse >= 70:
+        processed['connection_reuse_class'] = 'success'
+        processed['connection_reuse_insight'] = 'Excellent connection reuse efficiency'
+    elif connection_reuse >= 40:
+        processed['connection_reuse_class'] = 'warning'
+        processed['connection_reuse_insight'] = 'Moderate connection reuse - room for improvement'
+    else:
+        processed['connection_reuse_class'] = 'danger'
+        processed['connection_reuse_insight'] = 'Poor connection reuse - major performance impact'
     
     # Enhanced third-party analysis
     third_party_analysis = processed['enhanced_third_party_analysis']
@@ -442,6 +454,28 @@ def _generate_performance_insights(data: Dict[str, Any]) -> Dict[str, Any]:
     
     if no_cache_count > 10:
         priority_actions.append("Implement comprehensive caching strategy")
+    
+    # Connection reuse analysis
+    dns_connection_analysis = data.get('dns_connection_analysis', {})
+    connection_reuse = dns_connection_analysis.get('connection_reuse_percentage', 0)
+    reused_connections = dns_connection_analysis.get('reused_connections', 0)
+    new_connections = dns_connection_analysis.get('new_connections', 0)
+    
+    # Add connection reuse insights
+    if connection_reuse < 30:
+        issues.append(f"Poor connection reuse: Only {connection_reuse}% of connections are reused")
+        recommendations.append("Enable HTTP/2, implement connection keep-alive, and optimize domain sharding")
+        priority_actions.append("Audit connection handling and reduce new connection overhead")
+    elif connection_reuse < 60:
+        issues.append(f"Suboptimal connection reuse: {connection_reuse}% efficiency")
+        recommendations.append("Review connection pooling and consider HTTP/2 multiplexing")
+    else:
+        strengths.append(f"Good connection reuse efficiency: {connection_reuse}%")
+    
+    # Check for missing connection timing data
+    if new_connections == 0 and reused_connections == 0:
+        issues.append("Connection timing data unavailable - unable to analyze connection reuse")
+        recommendations.append("Consider using a more detailed HAR capture tool for network analysis")
     
     return {
         'issues': issues,

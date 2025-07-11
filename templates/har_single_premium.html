@@ -890,10 +890,10 @@
                     <div class="metric-label">Unique Domains</div>
                     <div class="metric-sublabel">Connection overhead</div>
                 </div>
-                <div class="metric-card info">
-                    <div class="metric-value info">{{ connection_reuse }}%</div>
+                <div class="metric-card {{ connection_reuse_class }}">
+                    <div class="metric-value {{ connection_reuse_class }}">{{ connection_reuse }}%</div>
                     <div class="metric-label">Connection Reuse</div>
-                    <div class="metric-sublabel">Efficiency metric</div>
+                    <div class="metric-sublabel">{{ connection_reuse_insight }}</div>
                 </div>
             </div>
 
