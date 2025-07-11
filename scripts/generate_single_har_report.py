@@ -255,6 +255,7 @@ def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     processed['connection_reuse'] = 85  # Placeholder calculation
     
     # Enhanced third-party analysis
+    third_party_analysis = processed['enhanced_third_party_analysis']
     processed['third_party_analysis'] = third_party_analysis
     processed['category_breakdown'] = third_party_analysis.get('category_breakdown', {})
     
@@ -460,6 +461,7 @@ def _generate_chart_data(data: Dict[str, Any]) -> Dict[str, Any]:
         'fetch': '#FFEAA7',
         'font': '#DDA0DD',
         'ping': '#FFA07A',
+        'preflight': '#9B59B6',
         'other': '#D3D3D3'
     }
     
