@@ -977,21 +977,21 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if asset.size_kb > 5000 %}
+                                {% if asset.size_kb and asset.size_kb|float > 5000 %}
                                 <span class="status-badge status-4xx">Critical</span>
-                                {% elif asset.size_kb > 1000 %}
+                                {% elif asset.size_kb and asset.size_kb|float > 1000 %}
                                 <span class="status-badge status-3xx">High</span>
                                 {% else %}
                                 <span class="status-badge status-2xx">Normal</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if asset.size_kb > 5000 %}
+                                {% if asset.size_kb and asset.size_kb|float > 5000 %}
                                 Code splitting needed
-                                {% elif asset.size_kb > 1000 %}
-                                Compression recommended
+                                {% elif asset.size_kb and asset.size_kb|float > 1000 %}
+                                Consider optimization
                                 {% else %}
-                                Well optimized
+                                Size acceptable
                                 {% endif %}
                             </td>
                         </tr>
@@ -1029,15 +1029,22 @@
                         <tr>
                             <td class="url-cell" title="{{ request.url }}">{{ request.url|truncate(50) }}</td>
                             <td>
-                                {{ request.time_ms|round }} ms
-                                <div class="progress-bar">
-                                    <div class="progress-fill" style="width: {{ (request.time_ms / max_request_time * 100)|round }}%;"></div>
-                                </div>
+                                {% if request.time_ms %}
+                                    {{ request.time_ms|round }} ms
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: {{ (request.time_ms / max_request_time * 100)|round }}%;"></div>
+                                    </div>
+                                {% else %}
+                                    N/A
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" style="width: 0%;"></div>
+                                    </div>
+                                {% endif %}
                             </td>
                             <td>
-                                {% if request.time_ms > 5000 %}
+                                {% if request.time_ms and request.time_ms|int > 5000 %}
                                 <span class="status-badge status-4xx">Critical</span>
-                                {% elif request.time_ms > 3000 %}
+                                {% elif request.time_ms and request.time_ms|int > 3000 %}
                                 <span class="status-badge status-3xx">High</span>
                                 {% else %}
                                 <span class="status-badge status-2xx">Medium</span>
@@ -1063,9 +1070,9 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if request.time_ms > 5000 %}
+                                {% if request.time_ms and request.time_ms|int > 5000 %}
                                 Consider removing or deferring
-                                {% elif request.time_ms > 3000 %}
+                                {% elif request.time_ms and request.time_ms|int > 3000 %}
                                 Optimize or cache response
                                 {% else %}
                                 Monitor performance
@@ -1201,9 +1208,9 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if request.status >= 500 %}
+                                {% if request.status and request.status|int >= 500 %}
                                 <span class="status-badge status-4xx">Critical</span>
-                                {% elif request.status >= 400 %}
+                                {% elif request.status and request.status|int >= 400 %}
                                 <span class="status-badge status-3xx">High</span>
                                 {% else %}
                                 <span class="status-badge status-2xx">Medium</span>

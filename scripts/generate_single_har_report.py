@@ -154,8 +154,19 @@ def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     processed['failed_requests_count'] = len(processed['failed_requests'])
     
     # Calculate performance classes
-    page_load_sec = float(processed['page_load_time'].replace('s', '')) if 's' in str(processed['page_load_time']) else 0
-    dom_ready_sec = float(processed['dom_ready_time'].replace('s', '')) if 's' in str(processed['dom_ready_time']) else 0
+    page_load_time = processed['performance_summary'].get('page_load_time', '0s')
+    dom_ready_time = processed['performance_summary'].get('dom_ready_time', '0s')
+    
+    # Extract numeric values from time strings
+    try:
+        page_load_sec = float(str(page_load_time).replace('s', '')) if 's' in str(page_load_time) else float(str(page_load_time))
+    except (ValueError, TypeError):
+        page_load_sec = 0
+    
+    try:
+        dom_ready_sec = float(str(dom_ready_time).replace('s', '')) if 's' in str(dom_ready_time) else float(str(dom_ready_time))
+    except (ValueError, TypeError):
+        dom_ready_sec = 0
     
     processed['load_time_class'] = 'danger' if page_load_sec > 5 else 'warning' if page_load_sec > 3 else 'success'
     processed['dom_time_class'] = 'danger' if dom_ready_sec > 2 else 'warning' if dom_ready_sec > 1 else 'success'
@@ -207,8 +218,17 @@ def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     # DNS analysis data
     dns_analysis = processed['dns_connection_analysis']
     processed['dns_analysis'] = dns_analysis
-    processed['avg_dns_time'] = dns_analysis.get('avg_dns_time', 0)
-    processed['avg_ssl_time'] = dns_analysis.get('avg_ssl_time', 0)
+    
+    # Handle avg_dns_time which might be "N/A" string
+    avg_dns_raw = dns_analysis.get('avg_dns_time', 0)
+    if isinstance(avg_dns_raw, str):
+        processed['avg_dns_time'] = 0  # Convert "N/A" to 0
+    else:
+        processed['avg_dns_time'] = float(avg_dns_raw) if avg_dns_raw else 0
+    
+    # Handle avg_ssl_time 
+    avg_ssl_raw = dns_analysis.get('avg_ssl_time', 0)
+    processed['avg_ssl_time'] = float(avg_ssl_raw) if avg_ssl_raw else 0
     
     dns_class = 'danger' if processed['avg_dns_time'] > 100 else 'warning' if processed['avg_dns_time'] > 50 else 'success'
     ssl_class = 'danger' if processed['avg_ssl_time'] > 300 else 'warning' if processed['avg_ssl_time'] > 200 else 'success'
