@@ -404,10 +404,17 @@ jobs:
         Each workflow includes interactive demo scripts for easy testing and validation.
         EOF
     
-    - name: Deploy documentation
-      uses: peaceiris/actions-gh-pages@v3
-      if: github.ref == 'refs/heads/main'
+    - name: Upload documentation artifacts
+      uses: actions/upload-artifact@v3
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./docs
-        destination_dir: docs
+        name: generated-documentation
+        path: docs/
+        retention-days: 30
+    
+    - name: Documentation summary
+      run: |
+        echo "📚 Documentation generated successfully!"
+        echo "📁 Files created:"
+        find docs -type f | wc -l
+        echo "📊 Documentation is available as build artifact"
+        echo "💡 To enable GitHub Pages, go to repository Settings > Pages"
