@@ -3,11 +3,13 @@
 
 # Optional dependencies for enhanced features
 jinja2>=3.0.0  # For advanced HTML templates (optional - has fallback to basic templates)
+colorama>=0.4.0  # For colored terminal output (required for CI/CD workflows)
 
 # Development dependencies (uncomment if needed for development)
 # pytest>=6.0.0  # For running tests
 # black>=22.0.0  # For code formatting
 # flake8>=4.0.0  # For code linting
+# isort>=5.0.0  # For import sorting
 
 # Note: This project is designed to work with Python standard library only.
 # Jinja2 is the only optional external dependency with graceful fallback.
