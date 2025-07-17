@@ -1,0 +1,13 @@
+# HAR-ANALYZE Requirements
+# Python 3.6+ required
+
+# Optional dependencies for enhanced features
+jinja2>=3.0.0  # For advanced HTML templates (optional - has fallback to basic templates)
+
+# Development dependencies (uncomment if needed for development)
+# pytest>=6.0.0  # For running tests
+# black>=22.0.0  # For code formatting
+# flake8>=4.0.0  # For code linting
+
+# Note: This project is designed to work with Python standard library only.
+# Jinja2 is the only optional external dependency with graceful fallback.

@@ -1,0 +1,413 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - '**.md'
+      - 'templates/**'
+  workflow_dispatch:
+
+jobs:
+  docs:
+    name: Generate Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install documentation tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install sphinx sphinx-rtd-theme sphinx-autodoc-typehints
+    
+    - name: Generate API documentation
+      run: |
+        echo "::group::API Documentation"
+        mkdir -p docs/api
+        
+        # Generate module documentation
+        python -c "
+        import os
+        import importlib.util
+        import inspect
+        
+        def document_module(filepath, module_name):
+            try:
+                spec = importlib.util.spec_from_file_location(module_name, filepath)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                
+                doc_content = f'# {module_name}\\n\\n'
+                
+                if module.__doc__:
+                    doc_content += f'{module.__doc__}\\n\\n'
+                
+                # Document functions
+                functions = [name for name, obj in inspect.getmembers(module, inspect.isfunction)]
+                if functions:
+                    doc_content += '## Functions\\n\\n'
+                    for func_name in functions:
+                        func = getattr(module, func_name)
+                        doc_content += f'### {func_name}\\n\\n'
+                        if func.__doc__:
+                            doc_content += f'{func.__doc__}\\n\\n'
+                        
+                        # Get signature
+                        try:
+                            sig = inspect.signature(func)
+                            doc_content += f'**Signature:** \`{func_name}{sig}\`\\n\\n'
+                        except:
+                            pass
+                
+                # Document classes
+                classes = [name for name, obj in inspect.getmembers(module, inspect.isclass)]
+                if classes:
+                    doc_content += '## Classes\\n\\n'
+                    for class_name in classes:
+                        cls = getattr(module, class_name)
+                        doc_content += f'### {class_name}\\n\\n'
+                        if cls.__doc__:
+                            doc_content += f'{cls.__doc__}\\n\\n'
+                
+                # Write documentation
+                with open(f'docs/api/{module_name}.md', 'w') as f:
+                    f.write(doc_content)
+                
+                print(f'✓ Documented {module_name}')
+                
+            except Exception as e:
+                print(f'✗ Error documenting {module_name}: {e}')
+        
+        # Document scripts
+        scripts_dir = 'scripts'
+        if os.path.exists(scripts_dir):
+            for filename in os.listdir(scripts_dir):
+                if filename.endswith('.py') and not filename.startswith('__'):
+                    module_name = filename[:-3]
+                    filepath = os.path.join(scripts_dir, filename)
+                    document_module(filepath, module_name)
+        "
+        echo "::endgroup::"
+    
+    - name: Generate usage examples
+      run: |
+        echo "::group::Usage Examples"
+        mkdir -p docs/examples
+        
+        cat > docs/examples/single-file-analysis.md << 'EOF'
+        # Single File Analysis Example
+        
+        This example demonstrates how to analyze a single HAR file using the HAR-ANALYZE toolkit.
+        
+        ## Basic Usage
+        
+        \`\`\`python
+        # Run the interactive demo
+        python demo_single_file_report.py
+        \`\`\`
+        
+        ## Step-by-Step Process
+        
+        ### 1. Break HAR File
+        \`\`\`python
+        import sys
+        sys.path.append('scripts')
+        from break_har_for_single_analysis import break_har_file
+        
+        # Break large HAR file into manageable chunks
+        break_har_file('HAR-Files/sample.har', 'har_chunks')
+        \`\`\`
+        
+        ### 2. Analyze Performance
+        \`\`\`python
+        from analyze_single_har_performance import analyze_performance
+        
+        # Analyze performance metrics
+        results = analyze_performance('har_chunks/sample_data')
+        print(f"Page Load Time: {results['page_load_time']:.2f}s")
+        \`\`\`
+        
+        ### 3. Generate Report
+        \`\`\`python
+        from generate_single_har_report import generate_report
+        
+        # Generate HTML report
+        generate_report('har_chunks/sample_data', 'reports/sample_report.html')
+        \`\`\`
+        
+        ## Expected Output
+        
+        - **JSON Analysis**: Structured performance data in `har_chunks/`
+        - **HTML Report**: Interactive report in `reports/`
+        - **Performance Grades**: GOOD/FAIR/POOR/CRITICAL ratings
+        EOF
+        
+        cat > docs/examples/comparison-analysis.md << 'EOF'
+        # HAR File Comparison Example
+        
+        Compare two HAR files to identify performance differences and regressions.
+        
+        ## Basic Usage
+        
+        \`\`\`python
+        # Run the interactive comparison demo
+        python demo_har_comparison.py
+        \`\`\`
+        
+        ## Manual Comparison Process
+        
+        ### 1. Prepare HAR Files
+        \`\`\`python
+        from scripts.break_har_for_comparison import prepare_comparison
+        
+        # Prepare both files for comparison
+        prepare_comparison('HAR-Files/baseline.har', 'HAR-Files/target.har', 'har_chunks')
+        \`\`\`
+        
+        ### 2. Compare Performance
+        \`\`\`python
+        from scripts.compare_har_analysis import compare_performance
+        
+        # Compare key metrics
+        comparison = compare_performance('har_chunks/baseline', 'har_chunks/target')
+        
+        # Check for regressions
+        if comparison['performance_change'] > 10:
+            print(f"⚠️ Performance regression detected: +{comparison['performance_change']:.1f}%")
+        \`\`\`
+        
+        ### 3. Generate Comparison Report
+        \`\`\`python
+        from scripts.generate_har_comparison_report import generate_comparison_report
+        
+        # Create side-by-side comparison
+        generate_comparison_report('har_chunks/comparison_data', 'reports/comparison.html')
+        \`\`\`
+        EOF
+        
+        cat > docs/examples/multi-run-analysis.md << 'EOF'
+        # Multi-Run Analysis Example
+        
+        Analyze multiple HAR files to identify trends and patterns across test runs.
+        
+        ## Basic Usage
+        
+        \`\`\`python
+        # Run the multi-run selector demo
+        python demo_multi_run_selector.py
+        \`\`\`
+        
+        ## Batch Analysis Process
+        
+        ### 1. Prepare Multiple Files
+        \`\`\`python
+        from scripts.analyze_multi_har_runs import analyze_multiple_runs
+        
+        har_files = [
+            'HAR-Files/run1.har',
+            'HAR-Files/run2.har', 
+            'HAR-Files/run3.har'
+        ]
+        
+        # Analyze all runs
+        results = analyze_multiple_runs(har_files, 'har_chunks')
+        \`\`\`
+        
+        ### 2. Compare Performance Trends
+        \`\`\`python
+        from scripts.compare_multi_har_performance import compare_runs
+        
+        # Identify trends and outliers
+        trends = compare_runs('har_chunks/multi_run_data')
+        
+        print(f"Average load time: {trends['avg_load_time']:.2f}s")
+        print(f"Performance variance: {trends['variance']:.1f}%")
+        \`\`\`
+        
+        ### 3. Generate Executive Report
+        \`\`\`python
+        from scripts.generate_multi_har_report import generate_executive_report
+        
+        # Create executive summary
+        generate_executive_report('har_chunks/multi_run_data', 'reports/executive.html')
+        \`\`\`
+        
+        ## Use Cases
+        
+        - **Regression Testing**: Track performance over time
+        - **Load Testing**: Compare performance under different loads
+        - **A/B Testing**: Compare different versions or configurations
+        - **Performance Monitoring**: Regular performance health checks
+        EOF
+        
+        echo "::endgroup::"
+    
+    - name: Generate project statistics
+      run: |
+        echo "::group::Project Statistics"
+        mkdir -p docs/stats
+        
+        python -c "
+        import os
+        import json
+        from datetime import datetime
+        
+        stats = {
+            'generated_at': datetime.now().isoformat(),
+            'project_name': 'HAR-ANALYZE',
+            'version': '1.0.0',
+            'files': {},
+            'totals': {}
+        }
+        
+        # Count files and lines
+        python_files = 0
+        total_lines = 0
+        demo_files = 0
+        script_files = 0
+        template_files = 0
+        
+        for root, dirs, files in os.walk('.'):
+            # Skip hidden directories and __pycache__
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
+            
+            for file in files:
+                filepath = os.path.join(root, file)
+                
+                if file.endswith('.py'):
+                    python_files += 1
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            lines = len(f.readlines())
+                            total_lines += lines
+                            
+                            # Categorize files
+                            if file.startswith('demo_'):
+                                demo_files += 1
+                            elif 'scripts' in root:
+                                script_files += 1
+                            
+                            stats['files'][filepath] = {
+                                'lines': lines,
+                                'type': 'python'
+                            }
+                    except:
+                        pass
+                
+                elif file.endswith('.html'):
+                    template_files += 1
+                    stats['files'][filepath] = {'type': 'template'}
+        
+        stats['totals'] = {
+            'python_files': python_files,
+            'total_lines': total_lines,
+            'demo_files': demo_files,
+            'script_files': script_files,
+            'template_files': template_files,
+            'avg_lines_per_file': total_lines // python_files if python_files > 0 else 0
+        }
+        
+        # Save statistics
+        with open('docs/stats/project_stats.json', 'w') as f:
+            json.dump(stats, f, indent=2)
+        
+        # Generate markdown report
+        with open('docs/stats/README.md', 'w') as f:
+            f.write(f'''# Project Statistics
+        
+        Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        
+        ## Overview
+        
+        - **Python Files**: {python_files}
+        - **Total Lines**: {total_lines:,}
+        - **Demo Scripts**: {demo_files}
+        - **Core Scripts**: {script_files}
+        - **HTML Templates**: {template_files}
+        - **Average Lines per File**: {stats['totals']['avg_lines_per_file']}
+        
+        ## File Breakdown
+        
+        ### Demo Scripts
+        Interactive demonstration scripts for different analysis workflows.
+        
+        ### Core Scripts
+        Production analysis scripts organized by functionality.
+        
+        ### Templates
+        Professional HTML report templates for different use cases.
+        
+        ## Code Quality Metrics
+        
+        - **Maintainability**: Modular design with clear separation of concerns
+        - **Cross-Platform**: Windows, macOS, and Linux compatibility
+        - **Dependencies**: Minimal external dependencies (optional Jinja2)
+        - **Performance**: Optimized for large HAR file processing
+        ''')
+        
+        print(f'📊 Generated statistics for {python_files} Python files ({total_lines:,} lines)')
+        "
+        echo "::endgroup::"
+    
+    - name: Create documentation index
+      run: |
+        cat > docs/README.md << 'EOF'
+        # HAR-ANALYZE Documentation
+        
+        Welcome to the HAR-ANALYZE documentation. This toolkit provides comprehensive analysis capabilities for HTTP Archive (.har) files.
+        
+        ## Quick Start
+        
+        1. **Installation**: Follow the [README](../README.md) for setup instructions
+        2. **Single File Analysis**: See [single-file-analysis.md](examples/single-file-analysis.md)
+        3. **Comparison Analysis**: See [comparison-analysis.md](examples/comparison-analysis.md)
+        4. **Multi-Run Analysis**: See [multi-run-analysis.md](examples/multi-run-analysis.md)
+        
+        ## Documentation Structure
+        
+        ### `/api/` - API Documentation
+        Auto-generated documentation for all modules and functions.
+        
+        ### `/examples/` - Usage Examples
+        Step-by-step guides for common use cases and workflows.
+        
+        ### `/stats/` - Project Statistics
+        Code metrics, file counts, and project health indicators.
+        
+        ## Key Features
+        
+        - **Single File Analysis**: Deep performance analysis of individual HAR files
+        - **Comparison Analysis**: Side-by-side comparison of two HAR files
+        - **Multi-Run Analysis**: Trend analysis across multiple test runs
+        - **Professional Reports**: Interactive HTML reports with charts and metrics
+        - **Agent-Friendly**: Structured JSON output for automated consumption
+        - **Cross-Platform**: Windows, macOS, and Linux support
+        
+        ## Architecture
+        
+        The project follows a modular architecture with three main workflows:
+        
+        1. **Single Analysis**: `break_har_for_single_analysis.py` → `analyze_single_har_performance.py` → `generate_single_har_report.py`
+        2. **Comparison**: `break_har_for_comparison.py` → `compare_har_analysis.py` → `generate_har_comparison_report.py`
+        3. **Multi-Run**: `analyze_multi_har_runs.py` → `compare_multi_har_performance.py` → `generate_multi_har_report.py`
+        
+        Each workflow includes interactive demo scripts for easy testing and validation.
+        EOF
+    
+    - name: Deploy documentation
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/main'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+        destination_dir: docs

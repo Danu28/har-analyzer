@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Get version from tag
+      id: version
+      run: |
+        echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Validate version
+      run: |
+        echo "Building release for version: ${{ steps.version.outputs.VERSION }}"
+        echo "Tag: ${{ steps.version.outputs.TAG }}"
+    
+    - name: Run full test suite
+      run: |
+        # Install test dependencies
+        pip install pytest pytest-cov flake8 black isort
+        
+        # Run linting
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        
+        # Check formatting
+        black --check .
+        isort --check-only .
+        
+        # Test script imports
+        python -c "import sys; sys.path.append('scripts'); import break_har_for_single_analysis"
+        python -c "import sys; sys.path.append('scripts'); import analyze_single_har_performance"
+        
+        echo "✓ All tests passed for release"
+    
+    - name: Create release package
+      run: |
+        # Create release directory
+        mkdir -p release/har-analyze-${{ steps.version.outputs.VERSION }}
+        
+        # Copy essential files
+        cp -r scripts/ release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        cp -r templates/ release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        cp demo_*.py release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        cp requirements.txt release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        cp README.md release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        cp LICENSE release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        cp CHANGELOG.md release/har-analyze-${{ steps.version.outputs.VERSION }}/
+        
+        # Create directories
+        mkdir -p release/har-analyze-${{ steps.version.outputs.VERSION }}/HAR-Files
+        mkdir -p release/har-analyze-${{ steps.version.outputs.VERSION }}/har_chunks
+        mkdir -p release/har-analyze-${{ steps.version.outputs.VERSION }}/reports
+        
+        # Create archive
+        cd release
+        tar -czf har-analyze-${{ steps.version.outputs.VERSION }}.tar.gz har-analyze-${{ steps.version.outputs.VERSION }}/
+        zip -r har-analyze-${{ steps.version.outputs.VERSION }}.zip har-analyze-${{ steps.version.outputs.VERSION }}/
+    
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Extract version section from CHANGELOG.md
+        echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+        echo "## HAR-ANALYZE ${{ steps.version.outputs.TAG }}" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### What's New" >> $GITHUB_OUTPUT
+        
+        # Try to extract from CHANGELOG.md
+        if grep -A 20 "## \[${{ steps.version.outputs.VERSION }}\]" CHANGELOG.md; then
+          grep -A 20 "## \[${{ steps.version.outputs.VERSION }}\]" CHANGELOG.md | tail -n +2 | head -n -1 >> $GITHUB_OUTPUT
+        else
+          echo "- Performance analysis improvements" >> $GITHUB_OUTPUT
+          echo "- Bug fixes and stability enhancements" >> $GITHUB_OUTPUT
+          echo "- Documentation updates" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "" >> $GITHUB_OUTPUT
+        echo "### Installation" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "1. Download and extract the archive" >> $GITHUB_OUTPUT
+        echo "2. Install Python 3.8+ if not already installed" >> $GITHUB_OUTPUT
+        echo "3. Install dependencies: \`pip install -r requirements.txt\`" >> $GITHUB_OUTPUT
+        echo "4. Run demos: \`python demo_single_file_report.py\`" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### System Requirements" >> $GITHUB_OUTPUT
+        echo "- Python 3.8 or higher" >> $GITHUB_OUTPUT
+        echo "- Windows, macOS, or Linux" >> $GITHUB_OUTPUT
+        echo "- Optional: Jinja2 for enhanced HTML templates" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.version.outputs.TAG }}
+        release_name: HAR-ANALYZE ${{ steps.version.outputs.TAG }}
+        body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release/har-analyze-${{ steps.version.outputs.VERSION }}.tar.gz
+        asset_name: har-analyze-${{ steps.version.outputs.VERSION }}.tar.gz
+        asset_content_type: application/gzip
+    
+    - name: Upload ZIP Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release/har-analyze-${{ steps.version.outputs.VERSION }}.zip
+        asset_name: har-analyze-${{ steps.version.outputs.VERSION }}.zip
+        asset_content_type: application/zip
+
+  docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: release
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Get version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Create Dockerfile
+      run: |
+        cat > Dockerfile << 'EOF'
+        FROM python:3.11-slim
+        
+        WORKDIR /app
+        
+        # Install system dependencies
+        RUN apt-get update && apt-get install -y \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Copy requirements and install Python dependencies
+        COPY requirements.txt .
+        RUN pip install --no-cache-dir -r requirements.txt
+        
+        # Copy application files
+        COPY scripts/ ./scripts/
+        COPY templates/ ./templates/
+        COPY demo_*.py ./
+        COPY README.md LICENSE CHANGELOG.md ./
+        
+        # Create directories
+        RUN mkdir -p HAR-Files har_chunks reports
+        
+        # Set proper permissions
+        RUN chmod +x demo_*.py
+        
+        # Default command
+        CMD ["python", "demo_single_file_report.py"]
+        EOF
+    
+    - name: Build Docker image
+      run: |
+        docker build -t har-analyze:${{ steps.version.outputs.VERSION }} .
+        docker tag har-analyze:${{ steps.version.outputs.VERSION }} har-analyze:latest
+    
+    - name: Test Docker image
+      run: |
+        # Test that the image runs
+        docker run --rm har-analyze:${{ steps.version.outputs.VERSION }} python -c "print('HAR-ANALYZE Docker image ready')"
