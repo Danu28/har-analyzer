@@ -16,7 +16,7 @@ jobs:
         fetch-depth: 0
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
@@ -111,35 +111,18 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
     
     - name: Create GitHub Release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ steps.version.outputs.TAG }}
-        release_name: HAR-ANALYZE ${{ steps.version.outputs.TAG }}
+        name: HAR-ANALYZE ${{ steps.version.outputs.TAG }}
         body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
         draft: false
         prerelease: false
-    
-    - name: Upload Release Assets
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./release/har-analyze-${{ steps.version.outputs.VERSION }}.tar.gz
-        asset_name: har-analyze-${{ steps.version.outputs.VERSION }}.tar.gz
-        asset_content_type: application/gzip
-    
-    - name: Upload ZIP Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./release/har-analyze-${{ steps.version.outputs.VERSION }}.zip
-        asset_name: har-analyze-${{ steps.version.outputs.VERSION }}.zip
-        asset_content_type: application/zip
+        files: |
+          ./release/har-analyze-${{ steps.version.outputs.VERSION }}.tar.gz
+          ./release/har-analyze-${{ steps.version.outputs.VERSION }}.zip
 
   docker:
     name: Build Docker Image
