@@ -16,41 +16,44 @@ Features:
 
 import json
 import os
-from pathlib import Path
-from typing import Dict, Any, Optional
-from datetime import datetime
 import webbrowser
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-def generate_single_har_report(analysis_data: Dict[str, Any], 
-                             output_file: Optional[str] = None,
-                             template_file: Optional[str] = None,
-                             template_style: str = "detailed",
-                             open_browser: bool = True) -> str:
+
+def generate_single_har_report(
+    analysis_data: Dict[str, Any],
+    output_file: Optional[str] = None,
+    template_file: Optional[str] = None,
+    template_style: str = "detailed",
+    open_browser: bool = True,
+) -> str:
     """
     Generate HTML report from single HAR analysis data
-    
+
     Args:
         analysis_data: Analysis data dictionary from analyze_performance.py
         output_file: Output HTML file path (default: har_analysis_report.html)
         template_file: Custom template file path (default: uses built-in template)
         template_style: Template style - "detailed", "summary", or "dashboard" (default: detailed)
         open_browser: Whether to open report in browser
-        
+
     Returns:
         Path to generated HTML report
     """
     print("Generating single HAR analysis report...")
-    
+
     # Set default output file
     if not output_file:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        har_name = analysis_data.get('metadata', {}).get('har_name', 'unknown')
+        har_name = analysis_data.get("metadata", {}).get("har_name", "unknown")
         output_file = f"har_analysis_{har_name}_{timestamp}.html"
-    
+
     # Ensure .html extension
-    if not output_file.endswith('.html'):
-        output_file += '.html'
-    
+    if not output_file.endswith(".html"):
+        output_file += ".html"
+
     # Try to use external template first, then fall back to built-in
     if template_file and os.path.exists(template_file):
         print(f"Using custom template: {template_file}")
@@ -58,21 +61,24 @@ def generate_single_har_report(analysis_data: Dict[str, Any],
     else:
         # Check for style-specific template in templates directory
         template_filename = f"har_single_{template_style}.html"
-        default_template = Path(__file__).parent.parent / "templates" / template_filename
-        
+        default_template = (
+            Path(__file__).parent.parent / "templates" / template_filename
+        )
+
         if default_template.exists():
             print(f"Using {template_style} template: {default_template}")
             template_content = _load_template_file(str(default_template))
         else:
             print(f"Using built-in {template_style} template")
             template_content = _get_builtin_template(template_style)
-    
+
     # Process and validate analysis data
     processed_data = _process_analysis_data(analysis_data)
-    
+
     # Render template with data
     try:
-        from jinja2 import Template, DebugUndefined
+        from jinja2 import DebugUndefined, Template
+
         template = Template(template_content, undefined=DebugUndefined)
         html_content = template.render(**processed_data)
     except ImportError:
@@ -82,14 +88,14 @@ def generate_single_har_report(analysis_data: Dict[str, Any],
         print(f"WARNING: Jinja2 template error: {e}")
         print("   Falling back to simple template replacement")
         html_content = _render_simple_template(template_content, processed_data)
-    
+
     # Write HTML file
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
-    
+
     file_size = os.path.getsize(output_file) / 1024
     print(f"SUCCESS: Report generated: {output_file} ({file_size:.1f} KB)")
-    
+
     # Open in browser if requested
     if open_browser:
         try:
@@ -97,217 +103,294 @@ def generate_single_har_report(analysis_data: Dict[str, Any],
             print("Report opened in browser")
         except Exception as e:
             print(f"WARNING: Could not open browser: {e}")
-    
+
     return output_file
+
 
 def _load_template_file(template_path: str) -> str:
     """Load template content from file"""
     try:
-        with open(template_path, 'r', encoding='utf-8') as f:
+        with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as e:
         print(f"WARNING: Could not load template {template_path}: {e}")
         return _get_builtin_template("detailed")
 
+
 def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
     """Process and validate analysis data for template rendering"""
-    
+
     # Ensure all required sections exist with defaults
     processed = {
-        'metadata': analysis_data.get('metadata', {}),
-        'performance_summary': analysis_data.get('performance_summary', {}),
-        'critical_issues': analysis_data.get('critical_issues', {}),
-        'resource_breakdown': analysis_data.get('resource_breakdown', {}),
-        'largest_assets': analysis_data.get('largest_assets', []),
-        'slowest_requests': analysis_data.get('slowest_requests', []),
-        'failed_requests': analysis_data.get('failed_requests', []),
-        'compression_analysis': analysis_data.get('compression_analysis', {}),
-        'caching_analysis': analysis_data.get('caching_analysis', {}),
-        'dns_connection_analysis': analysis_data.get('dns_connection_analysis', {}),
-        'enhanced_third_party_analysis': analysis_data.get('enhanced_third_party_analysis', {}),
-        'recommendations': analysis_data.get('recommendations', []),
-        'timing_breakdown': analysis_data.get('timing_breakdown', {}),
-        'domain_analysis': analysis_data.get('domain_analysis', {}),
-        'status_codes': analysis_data.get('status_codes', {})
+        "metadata": analysis_data.get("metadata", {}),
+        "performance_summary": analysis_data.get("performance_summary", {}),
+        "critical_issues": analysis_data.get("critical_issues", {}),
+        "resource_breakdown": analysis_data.get("resource_breakdown", {}),
+        "largest_assets": analysis_data.get("largest_assets", []),
+        "slowest_requests": analysis_data.get("slowest_requests", []),
+        "failed_requests": analysis_data.get("failed_requests", []),
+        "compression_analysis": analysis_data.get("compression_analysis", {}),
+        "caching_analysis": analysis_data.get("caching_analysis", {}),
+        "dns_connection_analysis": analysis_data.get("dns_connection_analysis", {}),
+        "enhanced_third_party_analysis": analysis_data.get(
+            "enhanced_third_party_analysis", {}
+        ),
+        "recommendations": analysis_data.get("recommendations", []),
+        "timing_breakdown": analysis_data.get("timing_breakdown", {}),
+        "domain_analysis": analysis_data.get("domain_analysis", {}),
+        "status_codes": analysis_data.get("status_codes", {}),
     }
-    
+
     # Add current timestamp to metadata
-    if 'report_timestamp' not in processed['metadata']:
-        processed['metadata']['report_timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
+    if "report_timestamp" not in processed["metadata"]:
+        processed["metadata"]["report_timestamp"] = datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
     # Calculate performance grade if not present
-    if 'performance_grade' not in processed['performance_summary']:
-        processed['performance_summary']['performance_grade'] = _calculate_performance_grade(processed)
-    
+    if "performance_grade" not in processed["performance_summary"]:
+        processed["performance_summary"]["performance_grade"] = (
+            _calculate_performance_grade(processed)
+        )
+
     # Generate performance insights
-    processed['performance_insights'] = _generate_performance_insights(processed)
-    
+    processed["performance_insights"] = _generate_performance_insights(processed)
+
     # Generate chart data
-    processed['chart_data'] = _generate_chart_data(processed)
-    
+    processed["chart_data"] = _generate_chart_data(processed)
+
     # Add template-specific variables for premium template
-    processed['timestamp'] = processed['metadata']['report_timestamp']
-    processed['performance_grade'] = processed['performance_summary'].get('performance_grade', 'UNKNOWN')
-    processed['page_load_time'] = processed['performance_summary'].get('page_load_time', '0s')
-    processed['dom_ready_time'] = processed['performance_summary'].get('dom_ready_time', '0s')
-    processed['total_requests'] = processed['performance_summary'].get('total_requests', 0)
-    processed['failed_requests_count'] = len(processed['failed_requests'])
-    
+    processed["timestamp"] = processed["metadata"]["report_timestamp"]
+    processed["performance_grade"] = processed["performance_summary"].get(
+        "performance_grade", "UNKNOWN"
+    )
+    processed["page_load_time"] = processed["performance_summary"].get(
+        "page_load_time", "0s"
+    )
+    processed["dom_ready_time"] = processed["performance_summary"].get(
+        "dom_ready_time", "0s"
+    )
+    processed["total_requests"] = processed["performance_summary"].get(
+        "total_requests", 0
+    )
+    processed["failed_requests_count"] = len(processed["failed_requests"])
+
     # Calculate performance classes
-    page_load_time = processed['performance_summary'].get('page_load_time', '0s')
-    dom_ready_time = processed['performance_summary'].get('dom_ready_time', '0s')
-    
+    page_load_time = processed["performance_summary"].get("page_load_time", "0s")
+    dom_ready_time = processed["performance_summary"].get("dom_ready_time", "0s")
+
     # Extract numeric values from time strings
     try:
-        page_load_sec = float(str(page_load_time).replace('s', '')) if 's' in str(page_load_time) else float(str(page_load_time))
+        page_load_sec = (
+            float(str(page_load_time).replace("s", ""))
+            if "s" in str(page_load_time)
+            else float(str(page_load_time))
+        )
     except (ValueError, TypeError):
         page_load_sec = 0
-    
+
     try:
-        dom_ready_sec = float(str(dom_ready_time).replace('s', '')) if 's' in str(dom_ready_time) else float(str(dom_ready_time))
+        dom_ready_sec = (
+            float(str(dom_ready_time).replace("s", ""))
+            if "s" in str(dom_ready_time)
+            else float(str(dom_ready_time))
+        )
     except (ValueError, TypeError):
         dom_ready_sec = 0
-    
-    processed['load_time_class'] = 'danger' if page_load_sec > 5 else 'warning' if page_load_sec > 3 else 'success'
-    processed['dom_time_class'] = 'danger' if dom_ready_sec > 2 else 'warning' if dom_ready_sec > 1 else 'success'
-    processed['requests_class'] = 'danger' if processed['total_requests'] > 100 else 'warning' if processed['total_requests'] > 50 else 'success'
-    processed['failed_class'] = 'danger' if processed['failed_requests_count'] > 5 else 'warning' if processed['failed_requests_count'] > 0 else 'success'
-    
+
+    processed["load_time_class"] = (
+        "danger" if page_load_sec > 5 else "warning" if page_load_sec > 3 else "success"
+    )
+    processed["dom_time_class"] = (
+        "danger" if dom_ready_sec > 2 else "warning" if dom_ready_sec > 1 else "success"
+    )
+    processed["requests_class"] = (
+        "danger"
+        if processed["total_requests"] > 100
+        else "warning" if processed["total_requests"] > 50 else "success"
+    )
+    processed["failed_class"] = (
+        "danger"
+        if processed["failed_requests_count"] > 5
+        else "warning" if processed["failed_requests_count"] > 0 else "success"
+    )
+
     # Calculate max values for progress bars
-    processed['max_asset_size'] = max([asset.get('size_kb', 0) for asset in processed['largest_assets']], default=1)
-    processed['max_request_time'] = max([req.get('time_ms', 0) for req in processed['slowest_requests']], default=1)
-    
+    processed["max_asset_size"] = max(
+        [asset.get("size_kb", 0) for asset in processed["largest_assets"]], default=1
+    )
+    processed["max_request_time"] = max(
+        [req.get("time_ms", 0) for req in processed["slowest_requests"]], default=1
+    )
+
     # Generate Performance Insights
-    processed['performance_insights'] = _generate_performance_insights(processed)
-    
+    processed["performance_insights"] = _generate_performance_insights(processed)
+
     # Calculate summary metrics
-    largest_assets = processed['largest_assets']
-    total_asset_size = sum([asset.get('size_kb', 0) for asset in largest_assets])
-    processed['total_size_mb'] = round(total_asset_size / 1024, 1) if total_asset_size > 0 else 0
-    
-    slowest_requests = processed['slowest_requests'] 
-    avg_response_time = sum([req.get('time_ms', 0) for req in slowest_requests]) / len(slowest_requests) if slowest_requests else 0
-    processed['avg_response_time'] = round(avg_response_time)
-    
+    largest_assets = processed["largest_assets"]
+    total_asset_size = sum([asset.get("size_kb", 0) for asset in largest_assets])
+    processed["total_size_mb"] = (
+        round(total_asset_size / 1024, 1) if total_asset_size > 0 else 0
+    )
+
+    slowest_requests = processed["slowest_requests"]
+    avg_response_time = (
+        sum([req.get("time_ms", 0) for req in slowest_requests]) / len(slowest_requests)
+        if slowest_requests
+        else 0
+    )
+    processed["avg_response_time"] = round(avg_response_time)
+
     # Third-party analysis
-    third_party_analysis = processed['enhanced_third_party_analysis']
-    processed['third_party_domains'] = third_party_analysis.get('total_third_party_domains', 0)
-    processed['blocking_resources'] = len(third_party_analysis.get('blocking_third_parties', []))
-    
+    third_party_analysis = processed["enhanced_third_party_analysis"]
+    processed["third_party_domains"] = third_party_analysis.get(
+        "total_third_party_domains", 0
+    )
+    processed["blocking_resources"] = len(
+        third_party_analysis.get("blocking_third_parties", [])
+    )
+
     # Extract issues and recommendations from insights
-    insights = processed['performance_insights']
-    processed['issues'] = insights.get('issues', [])
-    processed['recommendations'] = insights.get('recommendations', [])
-    processed['strengths'] = insights.get('strengths', [])
-    processed['priority_actions'] = insights.get('priority_actions', [])
-    
+    insights = processed["performance_insights"]
+    processed["issues"] = insights.get("issues", [])
+    processed["recommendations"] = insights.get("recommendations", [])
+    processed["strengths"] = insights.get("strengths", [])
+    processed["priority_actions"] = insights.get("priority_actions", [])
+
     # Resource chart data
-    processed['resource_chart_data'] = processed['chart_data'].get('resource_breakdown', [])
-    
+    processed["resource_chart_data"] = processed["chart_data"].get(
+        "resource_breakdown", []
+    )
+
     # Caching analysis data
-    caching_analysis = processed['caching_analysis']
-    processed['no_cache_count'] = len(caching_analysis.get('no_cache_resources', []))
-    processed['short_cache_count'] = len(caching_analysis.get('short_cache_resources', []))
-    processed['well_cached_count'] = caching_analysis.get('well_cached_count', 0)
-    processed['potential_savings'] = round(caching_analysis.get('total_potential_savings_kb', 0))
-    processed['no_cache_resources'] = [
+    caching_analysis = processed["caching_analysis"]
+    processed["no_cache_count"] = len(caching_analysis.get("no_cache_resources", []))
+    processed["short_cache_count"] = len(
+        caching_analysis.get("short_cache_resources", [])
+    )
+    processed["well_cached_count"] = caching_analysis.get("well_cached_count", 0)
+    processed["potential_savings"] = round(
+        caching_analysis.get("total_potential_savings_kb", 0)
+    )
+    processed["no_cache_resources"] = [
         {
-            'url': res.get('url', ''),
-            'type': res.get('resourceType', 'unknown'),
-            'size_kb': round(res.get('size', 0) / 1024, 1)
-        } for res in caching_analysis.get('no_cache_resources', [])
+            "url": res.get("url", ""),
+            "type": res.get("resourceType", "unknown"),
+            "size_kb": round(res.get("size", 0) / 1024, 1),
+        }
+        for res in caching_analysis.get("no_cache_resources", [])
     ]
-    
+
     # DNS analysis data
-    dns_analysis = processed['dns_connection_analysis']
-    processed['dns_analysis'] = dns_analysis
-    
+    dns_analysis = processed["dns_connection_analysis"]
+    processed["dns_analysis"] = dns_analysis
+
     # Handle avg_dns_time which might be "N/A" string
-    avg_dns_raw = dns_analysis.get('avg_dns_time', 0)
+    avg_dns_raw = dns_analysis.get("avg_dns_time", 0)
     if isinstance(avg_dns_raw, str):
-        processed['avg_dns_time'] = 0  # Convert "N/A" to 0
+        processed["avg_dns_time"] = 0  # Convert "N/A" to 0
     else:
-        processed['avg_dns_time'] = float(avg_dns_raw) if avg_dns_raw else 0
-    
-    # Handle avg_ssl_time 
-    avg_ssl_raw = dns_analysis.get('avg_ssl_time', 0)
+        processed["avg_dns_time"] = float(avg_dns_raw) if avg_dns_raw else 0
+
+    # Handle avg_ssl_time
+    avg_ssl_raw = dns_analysis.get("avg_ssl_time", 0)
     if isinstance(avg_ssl_raw, str):
-        processed['avg_ssl_time'] = 0  # Convert "N/A" to 0
+        processed["avg_ssl_time"] = 0  # Convert "N/A" to 0
     else:
-        processed['avg_ssl_time'] = float(avg_ssl_raw) if avg_ssl_raw else 0
-    
-    dns_class = 'danger' if processed['avg_dns_time'] > 100 else 'warning' if processed['avg_dns_time'] > 50 else 'success'
-    ssl_class = 'danger' if processed['avg_ssl_time'] > 300 else 'warning' if processed['avg_ssl_time'] > 200 else 'success'
-    processed['dns_class'] = dns_class
-    processed['ssl_class'] = ssl_class
-    
+        processed["avg_ssl_time"] = float(avg_ssl_raw) if avg_ssl_raw else 0
+
+    dns_class = (
+        "danger"
+        if processed["avg_dns_time"] > 100
+        else "warning" if processed["avg_dns_time"] > 50 else "success"
+    )
+    ssl_class = (
+        "danger"
+        if processed["avg_ssl_time"] > 300
+        else "warning" if processed["avg_ssl_time"] > 200 else "success"
+    )
+    processed["dns_class"] = dns_class
+    processed["ssl_class"] = ssl_class
+
     # Domain performance data
-    domain_performance = dns_analysis.get('domain_performance', [])
-    processed['domain_performance'] = [
+    domain_performance = dns_analysis.get("domain_performance", [])
+    processed["domain_performance"] = [
         {
-            'name': domain.get('domain', 'unknown'),
-            'requests': domain.get('requests', 0),
-            'dns_time': f"{domain.get('avg_dns_ms', 0):.1f}",
-            'ssl_time': f"{domain.get('avg_ssl_ms', 0):.1f}",
-            'total_time': f"{domain.get('total_time_ms', 0):.1f}",
-            'category': 'third-party'
-        } for domain in domain_performance[:10]
+            "name": domain.get("domain", "unknown"),
+            "requests": domain.get("requests", 0),
+            "dns_time": f"{domain.get('avg_dns_ms', 0):.1f}",
+            "ssl_time": f"{domain.get('avg_ssl_ms', 0):.1f}",
+            "total_time": f"{domain.get('total_time_ms', 0):.1f}",
+            "category": "third-party",
+        }
+        for domain in domain_performance[:10]
     ]
-    
-    processed['unique_domains'] = len(domain_performance)
-    processed['connection_reuse'] = dns_analysis.get('connection_reuse_percentage', 0)
-    
+
+    processed["unique_domains"] = len(domain_performance)
+    processed["connection_reuse"] = dns_analysis.get("connection_reuse_percentage", 0)
+
     # Connection reuse analysis with color coding and insights
-    connection_reuse = processed['connection_reuse']
+    connection_reuse = processed["connection_reuse"]
     if connection_reuse >= 70:
-        processed['connection_reuse_class'] = 'success'
-        processed['connection_reuse_insight'] = 'Excellent connection reuse efficiency'
+        processed["connection_reuse_class"] = "success"
+        processed["connection_reuse_insight"] = "Excellent connection reuse efficiency"
     elif connection_reuse >= 40:
-        processed['connection_reuse_class'] = 'warning'
-        processed['connection_reuse_insight'] = 'Moderate connection reuse - room for improvement'
+        processed["connection_reuse_class"] = "warning"
+        processed["connection_reuse_insight"] = (
+            "Moderate connection reuse - room for improvement"
+        )
     else:
-        processed['connection_reuse_class'] = 'danger'
-        processed['connection_reuse_insight'] = 'Poor connection reuse - major performance impact'
-    
+        processed["connection_reuse_class"] = "danger"
+        processed["connection_reuse_insight"] = (
+            "Poor connection reuse - major performance impact"
+        )
+
     # Enhanced third-party analysis
-    third_party_analysis = processed['enhanced_third_party_analysis']
-    processed['third_party_analysis'] = third_party_analysis
-    processed['category_breakdown'] = third_party_analysis.get('category_breakdown', {})
-    
+    third_party_analysis = processed["enhanced_third_party_analysis"]
+    processed["third_party_analysis"] = third_party_analysis
+    processed["category_breakdown"] = third_party_analysis.get("category_breakdown", {})
+
     # High impact domains
-    domain_impact = third_party_analysis.get('domain_impact', {})
+    domain_impact = third_party_analysis.get("domain_impact", {})
     high_impact_domains = []
     for domain_name, stats in list(domain_impact.items())[:5]:
-        high_impact_domains.append({
-            'name': domain_name,
-            'requests': stats.get('requests', 0),
-            'total_time': stats.get('total_time', 0),
-            'size_kb': stats.get('total_size_kb', 0),
-            'category': stats.get('category', 'unknown')
-        })
-    processed['high_impact_domains'] = high_impact_domains
-    
+        high_impact_domains.append(
+            {
+                "name": domain_name,
+                "requests": stats.get("requests", 0),
+                "total_time": stats.get("total_time", 0),
+                "size_kb": stats.get("total_size_kb", 0),
+                "category": stats.get("category", "unknown"),
+            }
+        )
+    processed["high_impact_domains"] = high_impact_domains
+
     return processed
+
 
 def _calculate_performance_grade(data: Dict[str, Any]) -> str:
     """Calculate overall performance grade based on metrics"""
-    performance_summary = data.get('performance_summary', {})
-    
+    performance_summary = data.get("performance_summary", {})
+
     # Extract timing values
-    page_load_time = performance_summary.get('page_load_time', '0s')
-    dom_ready_time = performance_summary.get('dom_ready_time', '0s')
-    
+    page_load_time = performance_summary.get("page_load_time", "0s")
+    dom_ready_time = performance_summary.get("dom_ready_time", "0s")
+
     # Convert to seconds
-    load_time_sec = float(page_load_time.replace('s', '')) if 's' in str(page_load_time) else 0
-    dom_time_sec = float(dom_ready_time.replace('s', '')) if 's' in str(dom_ready_time) else 0
-    
+    load_time_sec = (
+        float(page_load_time.replace("s", "")) if "s" in str(page_load_time) else 0
+    )
+    dom_time_sec = (
+        float(dom_ready_time.replace("s", "")) if "s" in str(dom_ready_time) else 0
+    )
+
     # Get other metrics
-    total_requests = performance_summary.get('total_requests', 0)
-    failed_requests = len(data.get('failed_requests', []))
-    
+    total_requests = performance_summary.get("total_requests", 0)
+    failed_requests = len(data.get("failed_requests", []))
+
     # Calculate grade based on thresholds
     score = 100
-    
+
     # Page load time penalty
     if load_time_sec > 10:
         score -= 40
@@ -315,7 +398,7 @@ def _calculate_performance_grade(data: Dict[str, Any]) -> str:
         score -= 25
     elif load_time_sec > 3:
         score -= 15
-    
+
     # DOM ready time penalty
     if dom_time_sec > 5:
         score -= 25
@@ -323,13 +406,13 @@ def _calculate_performance_grade(data: Dict[str, Any]) -> str:
         score -= 15
     elif dom_time_sec > 1:
         score -= 10
-    
+
     # Request count penalty
     if total_requests > 100:
         score -= 20
     elif total_requests > 50:
         score -= 10
-    
+
     # Failed requests penalty
     if failed_requests > 10:
         score -= 20
@@ -337,7 +420,7 @@ def _calculate_performance_grade(data: Dict[str, Any]) -> str:
         score -= 15
     elif failed_requests > 0:
         score -= 10
-    
+
     # Determine grade
     if score >= 90:
         return "A+"
@@ -352,216 +435,252 @@ def _calculate_performance_grade(data: Dict[str, Any]) -> str:
     else:
         return "F"
 
+
 def _generate_performance_insights(data: Dict[str, Any]) -> Dict[str, Any]:
     """Generate performance insights, issues, recommendations, and priority actions"""
-    
-    performance_summary = data.get('performance_summary', {})
-    critical_issues = data.get('critical_issues', {})
-    caching_analysis = data.get('caching_analysis', {})
-    third_party_analysis = data.get('enhanced_third_party_analysis', {})
-    
+
+    performance_summary = data.get("performance_summary", {})
+    critical_issues = data.get("critical_issues", {})
+    caching_analysis = data.get("caching_analysis", {})
+    third_party_analysis = data.get("enhanced_third_party_analysis", {})
+
     # Extract timing values
-    page_load_time = performance_summary.get('page_load_time', '0s')
-    dom_ready_time = performance_summary.get('dom_ready_time', '0s')
-    
+    page_load_time = performance_summary.get("page_load_time", "0s")
+    dom_ready_time = performance_summary.get("dom_ready_time", "0s")
+
     # Convert to seconds
     try:
-        load_time_sec = float(str(page_load_time).replace('s', '')) if 's' in str(page_load_time) else float(str(page_load_time))
+        load_time_sec = (
+            float(str(page_load_time).replace("s", ""))
+            if "s" in str(page_load_time)
+            else float(str(page_load_time))
+        )
     except (ValueError, TypeError):
         load_time_sec = 0
-    
+
     try:
-        dom_time_sec = float(str(dom_ready_time).replace('s', '')) if 's' in str(dom_ready_time) else float(str(dom_ready_time))
+        dom_time_sec = (
+            float(str(dom_ready_time).replace("s", ""))
+            if "s" in str(dom_ready_time)
+            else float(str(dom_ready_time))
+        )
     except (ValueError, TypeError):
         dom_time_sec = 0
-    
-    total_requests = performance_summary.get('total_requests', 0)
-    failed_requests = critical_issues.get('failed_requests', 0)
-    very_slow_requests = critical_issues.get('very_slow_requests', 0)
-    
+
+    total_requests = performance_summary.get("total_requests", 0)
+    failed_requests = critical_issues.get("failed_requests", 0)
+    very_slow_requests = critical_issues.get("very_slow_requests", 0)
+
     # Generate critical issues
     issues = []
     if load_time_sec > 10:
         issues.append(f"Critical: Page load time exceeds 10 seconds")
     elif load_time_sec > 5:
         issues.append(f"Warning: Page load time exceeds 5 seconds")
-    
+
     if dom_time_sec > 5:
         issues.append(f"Critical: DOM ready time exceeds 5 seconds")
     elif dom_time_sec > 2:
         issues.append(f"Warning: DOM ready time exceeds 2 seconds")
-    
+
     if total_requests > 100:
         issues.append(f"Critical request count: {total_requests} requests")
     elif total_requests > 50:
         issues.append(f"High request count: {total_requests} requests")
-    
+
     if failed_requests > 0:
         issues.append(f"Some failed requests: {failed_requests} failures")
-    
+
     if very_slow_requests > 20:
         issues.append(f"Too many slow requests: {very_slow_requests} requests >1s")
-    
+
     # Generate recommendations
     recommendations = []
     if total_requests > 50:
         recommendations.append("Consider bundling smaller assets together")
-    
+
     if failed_requests > 0:
         recommendations.append("Review and fix failing requests")
-    
-    no_cache_count = len(caching_analysis.get('no_cache_resources', []))
+
+    no_cache_count = len(caching_analysis.get("no_cache_resources", []))
     if no_cache_count > 0:
         recommendations.append(f"Add cache headers to {no_cache_count} resources")
-    
+
     if very_slow_requests > 10:
         recommendations.append("Optimize slow-loading resources")
-    
+
     # Check for large assets
-    largest_assets = data.get('largest_assets', [])
-    large_assets = [asset for asset in largest_assets if asset.get('size_kb', 0) > 1000]
+    largest_assets = data.get("largest_assets", [])
+    large_assets = [asset for asset in largest_assets if asset.get("size_kb", 0) > 1000]
     if large_assets:
-        recommendations.append(f"Consider code splitting for {len(large_assets)} large assets")
-    
+        recommendations.append(
+            f"Consider code splitting for {len(large_assets)} large assets"
+        )
+
     # Generate strengths (things going well)
     strengths = []
     if failed_requests == 0:
         strengths.append("No failed requests detected")
-    
+
     if load_time_sec < 3:
         strengths.append("Excellent page load time")
     elif load_time_sec < 5:
         strengths.append("Good page load time")
-    
+
     if total_requests < 50:
         strengths.append("Reasonable number of requests")
-    
-    compression_analysis = data.get('compression_analysis', {})
-    if compression_analysis.get('compression_opportunity_count', 0) == 0:
+
+    compression_analysis = data.get("compression_analysis", {})
+    if compression_analysis.get("compression_opportunity_count", 0) == 0:
         strengths.append("Good compression utilization")
-    
+
     # Generate priority actions
     priority_actions = []
     if load_time_sec > 10 and len(large_assets) > 0:
         priority_actions.append("Implement aggressive code splitting and lazy loading")
-    
-    blocking_count = len(third_party_analysis.get('blocking_third_parties', []))
+
+    blocking_count = len(third_party_analysis.get("blocking_third_parties", []))
     if blocking_count > 5:
         priority_actions.append("Minimize blocking JavaScript and CSS")
-    
+
     if very_slow_requests > 30:
-        priority_actions.append("Investigate and optimize slowest resources immediately")
-    
+        priority_actions.append(
+            "Investigate and optimize slowest resources immediately"
+        )
+
     if no_cache_count > 10:
         priority_actions.append("Implement comprehensive caching strategy")
-    
+
     # Connection reuse analysis
-    dns_connection_analysis = data.get('dns_connection_analysis', {})
-    connection_reuse = dns_connection_analysis.get('connection_reuse_percentage', 0)
-    reused_connections = dns_connection_analysis.get('reused_connections', 0)
-    new_connections = dns_connection_analysis.get('new_connections', 0)
-    
+    dns_connection_analysis = data.get("dns_connection_analysis", {})
+    connection_reuse = dns_connection_analysis.get("connection_reuse_percentage", 0)
+    reused_connections = dns_connection_analysis.get("reused_connections", 0)
+    new_connections = dns_connection_analysis.get("new_connections", 0)
+
     # Add connection reuse insights
     if connection_reuse < 30:
-        issues.append(f"Poor connection reuse: Only {connection_reuse}% of connections are reused")
-        recommendations.append("Enable HTTP/2, implement connection keep-alive, and optimize domain sharding")
-        priority_actions.append("Audit connection handling and reduce new connection overhead")
+        issues.append(
+            f"Poor connection reuse: Only {connection_reuse}% of connections are reused"
+        )
+        recommendations.append(
+            "Enable HTTP/2, implement connection keep-alive, and optimize domain sharding"
+        )
+        priority_actions.append(
+            "Audit connection handling and reduce new connection overhead"
+        )
     elif connection_reuse < 60:
         issues.append(f"Suboptimal connection reuse: {connection_reuse}% efficiency")
-        recommendations.append("Review connection pooling and consider HTTP/2 multiplexing")
+        recommendations.append(
+            "Review connection pooling and consider HTTP/2 multiplexing"
+        )
     else:
         strengths.append(f"Good connection reuse efficiency: {connection_reuse}%")
-    
+
     # Check for missing connection timing data
     if new_connections == 0 and reused_connections == 0:
-        issues.append("Connection timing data unavailable - unable to analyze connection reuse")
-        recommendations.append("Consider using a more detailed HAR capture tool for network analysis")
-    
+        issues.append(
+            "Connection timing data unavailable - unable to analyze connection reuse"
+        )
+        recommendations.append(
+            "Consider using a more detailed HAR capture tool for network analysis"
+        )
+
     return {
-        'issues': issues,
-        'recommendations': recommendations,
-        'strengths': strengths,
-        'priority_actions': priority_actions
+        "issues": issues,
+        "recommendations": recommendations,
+        "strengths": strengths,
+        "priority_actions": priority_actions,
     }
+
 
 def _generate_chart_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """Generate data for charts and visualizations"""
-    
+
     # Resource breakdown pie chart
-    resource_breakdown = data.get('resource_breakdown', {})
+    resource_breakdown = data.get("resource_breakdown", {})
     resource_chart = []
     colors = {
-        'script': '#FF6B6B',
-        'image': '#4ECDC4', 
-        'document': '#45B7D1',
-        'xhr': '#96CEB4',
-        'fetch': '#FFEAA7',
-        'font': '#DDA0DD',
-        'ping': '#FFA07A',
-        'preflight': '#9B59B6',
-        'other': '#D3D3D3'
+        "script": "#FF6B6B",
+        "image": "#4ECDC4",
+        "document": "#45B7D1",
+        "xhr": "#96CEB4",
+        "fetch": "#FFEAA7",
+        "font": "#DDA0DD",
+        "ping": "#FFA07A",
+        "preflight": "#9B59B6",
+        "other": "#D3D3D3",
     }
-    
+
     for resource_type, count in resource_breakdown.items():
-        resource_chart.append({
-            'label': resource_type.title(),
-            'value': count,
-            'color': colors.get(resource_type, '#D3D3D3')
-        })
-    
+        resource_chart.append(
+            {
+                "label": resource_type.title(),
+                "value": count,
+                "color": colors.get(resource_type, "#D3D3D3"),
+            }
+        )
+
     # Timing breakdown chart
-    timing_breakdown = data.get('timing_breakdown', {})
+    timing_breakdown = data.get("timing_breakdown", {})
     timing_chart = []
     timing_colors = {
-        'dns': '#FF6B6B',
-        'connect': '#4ECDC4',
-        'ssl': '#45B7D1',
-        'send': '#96CEB4',
-        'wait': '#FFEAA7',
-        'receive': '#DDA0DD'
+        "dns": "#FF6B6B",
+        "connect": "#4ECDC4",
+        "ssl": "#45B7D1",
+        "send": "#96CEB4",
+        "wait": "#FFEAA7",
+        "receive": "#DDA0DD",
     }
-    
+
     for timing_type, value in timing_breakdown.items():
         if value > 0:
-            timing_chart.append({
-                'label': timing_type.replace('_', ' ').title(),
-                'value': value,
-                'color': timing_colors.get(timing_type, '#D3D3D3')
-            })
-    
+            timing_chart.append(
+                {
+                    "label": timing_type.replace("_", " ").title(),
+                    "value": value,
+                    "color": timing_colors.get(timing_type, "#D3D3D3"),
+                }
+            )
+
     # Status codes chart
-    status_codes = data.get('status_codes', {})
+    status_codes = data.get("status_codes", {})
     status_chart = []
     status_colors = {
-        '2xx': '#16a34a',
-        '3xx': '#eab308',
-        '4xx': '#ea580c',
-        '5xx': '#dc2626'
+        "2xx": "#16a34a",
+        "3xx": "#eab308",
+        "4xx": "#ea580c",
+        "5xx": "#dc2626",
     }
-    
+
     for status_range, count in status_codes.items():
         if count > 0:
-            status_chart.append({
-                'label': f"{status_range} ({count})",
-                'value': count,
-                'color': status_colors.get(status_range, '#D3D3D3')
-            })
-    
+            status_chart.append(
+                {
+                    "label": f"{status_range} ({count})",
+                    "value": count,
+                    "color": status_colors.get(status_range, "#D3D3D3"),
+                }
+            )
+
     return {
-        'resource_breakdown': sorted(resource_chart, key=lambda x: x['value'], reverse=True),
-        'timing_breakdown': timing_chart,
-        'status_codes': status_chart
+        "resource_breakdown": sorted(
+            resource_chart, key=lambda x: x["value"], reverse=True
+        ),
+        "timing_breakdown": timing_chart,
+        "status_codes": status_chart,
     }
+
 
 def _get_builtin_template(template_style: str = "detailed") -> str:
     """Get built-in HTML template based on style"""
-    
+
     if template_style == "summary":
         return _get_summary_template()
     elif template_style == "dashboard":
         return _get_dashboard_template()
     else:
         return _get_detailed_template()
+
 
 def _get_detailed_template() -> str:
     """Get detailed built-in template"""
@@ -1074,6 +1193,7 @@ def _get_detailed_template() -> str:
 </body>
 </html>"""
 
+
 def _get_summary_template() -> str:
     """Get summary built-in template"""
     return """<!DOCTYPE html>
@@ -1233,6 +1353,7 @@ def _get_summary_template() -> str:
     </div>
 </body>
 </html>"""
+
 
 def _get_dashboard_template() -> str:
     """Get dashboard built-in template"""
@@ -1447,47 +1568,71 @@ def _get_dashboard_template() -> str:
 </body>
 </html>"""
 
+
 def _render_simple_template(template_content: str, data: Dict[str, Any]) -> str:
     """Simple template replacement fallback when Jinja2 is not available"""
     html = template_content
-    
+
     # Replace basic variables
     replacements = {
-        '{{ metadata.har_name }}': data.get('metadata', {}).get('har_name', 'HAR Analysis'),
-        '{{ metadata.report_timestamp }}': data.get('metadata', {}).get('report_timestamp', ''),
-        '{{ performance_summary.performance_grade }}': data.get('performance_summary', {}).get('performance_grade', 'N/A'),
-        '{{ performance_summary.page_load_time }}': data.get('performance_summary', {}).get('page_load_time', 'N/A'),
-        '{{ performance_summary.total_requests }}': str(data.get('performance_summary', {}).get('total_requests', 0)),
-        '{{ failed_requests|length }}': str(len(data.get('failed_requests', [])))
+        "{{ metadata.har_name }}": data.get("metadata", {}).get(
+            "har_name", "HAR Analysis"
+        ),
+        "{{ metadata.report_timestamp }}": data.get("metadata", {}).get(
+            "report_timestamp", ""
+        ),
+        "{{ performance_summary.performance_grade }}": data.get(
+            "performance_summary", {}
+        ).get("performance_grade", "N/A"),
+        "{{ performance_summary.page_load_time }}": data.get(
+            "performance_summary", {}
+        ).get("page_load_time", "N/A"),
+        "{{ performance_summary.total_requests }}": str(
+            data.get("performance_summary", {}).get("total_requests", 0)
+        ),
+        "{{ failed_requests|length }}": str(len(data.get("failed_requests", []))),
     }
-    
+
     for placeholder, value in replacements.items():
         html = html.replace(placeholder, value)
-    
+
     return html
+
 
 def main():
     """Main function for CLI usage"""
     import argparse
-    
-    parser = argparse.ArgumentParser(description="Generate single HAR analysis HTML report")
-    parser.add_argument('--analysis-file', required=True, help='Path to analysis JSON file (e.g., agent_summary.json)')
-    parser.add_argument('--output', help='Output HTML file path')
-    parser.add_argument('--template-file', help='Custom template file path')
-    parser.add_argument('--template-style', choices=['detailed', 'summary', 'dashboard', 'premium'], 
-                        default='detailed', help='Report template style (detailed, summary, dashboard, premium)')
-    parser.add_argument('--no-browser', action='store_true', help='Don\'t open report in browser')
-    
+
+    parser = argparse.ArgumentParser(
+        description="Generate single HAR analysis HTML report"
+    )
+    parser.add_argument(
+        "--analysis-file",
+        required=True,
+        help="Path to analysis JSON file (e.g., agent_summary.json)",
+    )
+    parser.add_argument("--output", help="Output HTML file path")
+    parser.add_argument("--template-file", help="Custom template file path")
+    parser.add_argument(
+        "--template-style",
+        choices=["detailed", "summary", "dashboard", "premium"],
+        default="detailed",
+        help="Report template style (detailed, summary, dashboard, premium)",
+    )
+    parser.add_argument(
+        "--no-browser", action="store_true", help="Don't open report in browser"
+    )
+
     args = parser.parse_args()
-    
+
     # Load analysis data
     try:
-        with open(args.analysis_file, 'r', encoding='utf-8') as f:
+        with open(args.analysis_file, "r", encoding="utf-8") as f:
             analysis_data = json.load(f)
     except Exception as e:
         print(f"ERROR: Error loading analysis file: {e}")
         return 1
-    
+
     # Generate report
     try:
         output_file = generate_single_har_report(
@@ -1495,13 +1640,14 @@ def main():
             output_file=args.output,
             template_file=args.template_file,
             template_style=args.template_style,
-            open_browser=not args.no_browser
+            open_browser=not args.no_browser,
         )
         print(f"SUCCESS: Report generated successfully: {output_file}")
         return 0
     except Exception as e:
         print(f"ERROR: Error generating report: {e}")
         return 1
+
 
 if __name__ == "__main__":
     exit(main())
