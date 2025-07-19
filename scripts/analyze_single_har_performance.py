@@ -102,11 +102,19 @@ def main(har_file=None, input_dir=None):
     print("\n[METRICS] PERFORMANCE OVERVIEW\n------------------------")
     total_entries = summary.get("totalEntries", 0)
     page = header["log"]["pages"][0]
-    dom_ready = round(page["pageTimings"]["onContentLoad"] / 1000, 2)
-    page_load = round(page["pageTimings"]["onLoad"] / 1000, 2)
+    
+    # Safely extract timing data with null checks
+    page_timings = page.get("pageTimings", {})
+    on_content_load = page_timings.get("onContentLoad")
+    on_load = page_timings.get("onLoad")
+    
+    # Convert to seconds with null safety
+    dom_ready = round(on_content_load / 1000, 2) if on_content_load is not None else None
+    page_load = round(on_load / 1000, 2) if on_load is not None else None
+    
     print(f"Total Requests: {total_entries}")
-    print(f"DOM Ready Time: {dom_ready}s")
-    print(f"Page Load Time: {page_load}s")
+    print(f"DOM Ready Time: {dom_ready}s" if dom_ready is not None else "DOM Ready Time: Not available")
+    print(f"Page Load Time: {page_load}s" if page_load is not None else "Page Load Time: Not available")
     print(f"Site: {page.get('title', '')}")
     # --- REQUEST TIMING ANALYSIS ---
     print("\n[TIMING] REQUEST TIMING ANALYSIS\n---------------------------")
@@ -248,11 +256,11 @@ def main(har_file=None, input_dir=None):
         )
     if len(failed) > 0:
         print_error(f"{len(failed)} failed requests. Fix broken resources immediately.")
-    if dom_ready > 3:
+    if dom_ready is not None and dom_ready > 3:
         print_error(
             f"DOM ready time is {dom_ready}s (target: under 3s). Optimize critical path."
         )
-    if page_load > 5:
+    if page_load is not None and page_load > 5:
         print_error(
             f"Page load time is {page_load}s (target: under 5s). Major optimization needed."
         )
@@ -370,8 +378,15 @@ def generate_agent_summary(summary, header, enhanced_analysis=None):
         reqs = summary["requests"]
         total_entries = summary.get("totalEntries", 0)
         page = header["log"]["pages"][0]
-        dom_ready = round(page["pageTimings"]["onContentLoad"] / 1000, 2)
-        page_load = round(page["pageTimings"]["onLoad"] / 1000, 2)
+        
+        # Safely extract timing data with null checks
+        page_timings = page.get("pageTimings", {})
+        on_content_load = page_timings.get("onContentLoad")
+        on_load = page_timings.get("onLoad")
+        
+        # Convert to seconds with null safety
+        dom_ready = round(on_content_load / 1000, 2) if on_content_load is not None else None
+        page_load = round(on_load / 1000, 2) if on_load is not None else None
 
         # Performance categorization
         very_slow = [r for r in reqs if r["time"] >= 1000]
@@ -396,13 +411,16 @@ def generate_agent_summary(summary, header, enhanced_analysis=None):
         base_summary = {
             "performance_summary": {
                 "total_requests": total_entries,
-                "dom_ready_time": f"{dom_ready}s",
-                "page_load_time": f"{page_load}s",
+                "dom_ready_time": f"{dom_ready}s" if dom_ready is not None else "Not available",
+                "page_load_time": f"{page_load}s" if page_load is not None else "Not available",
                 "performance_grade": (
                     "CRITICAL"
-                    if page_load > 10
+                    if page_load is not None and page_load > 10
                     else (
-                        "POOR" if page_load > 5 else "FAIR" if page_load > 3 else "GOOD"
+                        "POOR" if page_load is not None and page_load > 5 
+                        else "FAIR" if page_load is not None and page_load > 3 
+                        else "GOOD" if page_load is not None
+                        else "UNKNOWN"
                     )
                 ),
             },

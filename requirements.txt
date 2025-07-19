@@ -1,8 +1,12 @@
 # HAR-ANALYZE Requirements
 # Python 3.6+ required
 
+# Core dependencies for web GUI
+Flask>=2.3.0  # Web framework for GUI
+jinja2>=3.1.0  # Template engine (required by Flask)
+Werkzeug>=2.3.0  # WSGI utility library (required by Flask)
+
 # Optional dependencies for enhanced features
-jinja2>=3.0.0  # For advanced HTML templates (optional - has fallback to basic templates)
 colorama>=0.4.0  # For colored terminal output (required for CI/CD workflows)
 
 # Development dependencies (uncomment if needed for development)

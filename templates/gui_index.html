@@ -1,0 +1,232 @@
+{% extends "gui_layout.html" %}
+
+{% block title %}HAR-ANALYZE - Web Performance Analysis Dashboard{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero-section text-center mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="display-4 mb-3">
+                <i class="fas fa-chart-line text-primary me-3"></i>
+                HAR Performance Analysis
+            </h1>
+            <p class="lead text-muted">
+                Upload your HTTP Archive (.har) files to get detailed web performance insights, 
+                Core Web Vitals analysis, and actionable optimization recommendations.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Analysis Options Cards -->
+<div class="row g-4">
+    <!-- Single File Analysis -->
+    <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Single File Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Analyze a single HAR file to get comprehensive performance metrics, 
+                    resource breakdown, and optimization recommendations.
+                </p>
+                
+                <form action="{{ url_for('analyze_single') }}" method="post" enctype="multipart/form-data" class="analysis-form">
+                    <div class="mb-3">
+                        <label for="single-file" class="form-label">Select HAR File</label>
+                        <input type="file" class="form-control" id="single-file" name="har_file" 
+                               accept=".har,.json" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle text-muted me-1"></i>
+                            Supported formats: .har, .json (Max: 500MB)
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg" disabled>
+                            <span class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+                            <i class="fas fa-play me-2"></i>
+                            Analyze File
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Typical analysis time: 30-120 seconds
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two-File Comparison -->
+    <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-balance-scale me-2"></i>
+                    Compare Two Files
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Compare two HAR files side-by-side to identify performance differences, 
+                    regressions, or improvements between different sessions.
+                </p>
+                
+                <form action="{{ url_for('compare_files') }}" method="post" enctype="multipart/form-data" class="analysis-form">
+                    <div class="mb-3">
+                        <label for="baseline-file" class="form-label">Baseline HAR File</label>
+                        <input type="file" class="form-control" id="baseline-file" name="baseline_file" 
+                               accept=".har,.json" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="target-file" class="form-label">Target HAR File</label>
+                        <input type="file" class="form-control" id="target-file" name="target_file" 
+                               accept=".har,.json" required>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg" disabled>
+                            <span class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+                            <i class="fas fa-exchange-alt me-2"></i>
+                            Compare Files
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Typical comparison time: 60-180 seconds
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-File Trend Analysis -->
+    <div class="col-lg-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-area me-2"></i>
+                    Multi-File Trends
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">
+                    Analyze multiple HAR files to identify performance trends, 
+                    patterns, and generate executive summary reports.
+                </p>
+                
+                <form action="{{ url_for('analyze_multi') }}" method="post" enctype="multipart/form-data" class="analysis-form">
+                    <div class="mb-3">
+                        <label for="multi-files" class="form-label">Select Multiple HAR Files</label>
+                        <input type="file" class="form-control" id="multi-files" name="multi_files" 
+                               accept=".har,.json" multiple required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle text-muted me-1"></i>
+                            Select 2 or more files for trend analysis
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div id="file-list" class="file-list d-none">
+                            <strong>Selected Files:</strong>
+                            <ul class="list-unstyled mt-2" id="selected-files"></ul>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-warning btn-lg" disabled>
+                            <span class="spinner-border spinner-border-sm me-2 d-none" role="status"></span>
+                            <i class="fas fa-chart-line me-2"></i>
+                            Analyze Trends
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer bg-light">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    Analysis time varies by file count
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-star text-warning me-2"></i>
+                    Analysis Features
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center mb-3">
+                        <i class="fas fa-tachometer-alt fa-2x text-primary mb-2"></i>
+                        <h6>Core Web Vitals</h6>
+                        <small class="text-muted">LCP, FID, CLS analysis</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <i class="fas fa-sitemap fa-2x text-success mb-2"></i>
+                        <h6>Resource Breakdown</h6>
+                        <small class="text-muted">Detailed resource analysis</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <i class="fas fa-external-link-alt fa-2x text-info mb-2"></i>
+                        <h6>Third-Party Impact</h6>
+                        <small class="text-muted">External service analysis</small>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <i class="fas fa-lightbulb fa-2x text-warning mb-2"></i>
+                        <h6>Recommendations</h6>
+                        <small class="text-muted">Actionable optimization tips</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Instructions Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h6 class="alert-heading">
+                <i class="fas fa-question-circle me-2"></i>
+                How to get HAR files:
+            </h6>
+            <ol class="mb-0">
+                <li>Open Chrome DevTools (F12)</li>
+                <li>Go to the Network tab</li>
+                <li>Reload your page</li>
+                <li>Right-click on the network log and select "Save as HAR with content"</li>
+            </ol>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize form handlers
+    initializeFormHandlers();
+    initializeFileValidation();
+    initializeMultiFileHandler();
+});
+</script>
+{% endblock %}

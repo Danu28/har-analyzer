@@ -8,21 +8,46 @@ A comprehensive Python toolkit for analyzing HTTP Archive (.har) files with prof
 
 ## 🚀 Quick Start
 
+### Web GUI (Recommended for Most Users)
 ```bash
 # Clone the repository
 git clone https://github.com/Danu28/har-analyzer.git
 cd har-analyzer
 
-# Install dependencies (optional - uses standard library by default)
+# Install dependencies (Flask required for GUI)
 pip install -r requirements.txt
 
-# Run interactive demos
+# Launch the web GUI
+python app.py
+```
+Open your browser to `http://localhost:5000` for the intuitive web interface.
+
+### Command Line Interface
+```bash
+# Run interactive demos (no GUI dependencies needed)
 python demo_single_file_report.py     # Single HAR analysis
 python demo_har_comparison.py         # Compare two HAR files  
 python demo_multi_run_selector.py     # Multi-HAR analysis
 ```
 
 ## 🎯 Analysis Workflows
+
+### Web GUI Interface
+**Purpose**: User-friendly browser-based analysis for all workflows
+
+```bash
+python app.py
+```
+
+**Features**:
+- **Single File Analysis**: Drag & drop HAR files for instant analysis
+- **Two-File Comparison**: Side-by-side performance comparison
+- **Multi-File Trends**: Upload multiple files for trend analysis
+- **Real-time Validation**: File format and size validation
+- **Progress Tracking**: Visual feedback during analysis
+- **Report Viewing**: Integrated report display in browser
+
+**Benefits**: No command-line knowledge required, works on any platform with a web browser
 
 ### 1. Single HAR File Analysis
 **Purpose**: Deep performance analysis of individual HAR files
@@ -86,9 +111,19 @@ python demo_multi_run_selector.py
 
 ```
 HAR-analyze/
+├── app.py                          # Web GUI Flask application
 ├── demo_single_file_report.py      # Interactive single file demo
 ├── demo_har_comparison.py          # Interactive comparison demo
 ├── demo_multi_run_selector.py      # Interactive multi-run demo
+├── static/                         # Web GUI assets
+│   ├── css/style.css              # GUI styling
+│   └── js/main.js                 # GUI JavaScript
+├── templates/                      # HTML templates
+│   ├── gui_layout.html            # Base GUI template
+│   ├── gui_index.html             # Main dashboard
+│   ├── har_single_premium.html     # Single file report template
+│   ├── har_comparison_side_by_side.html
+│   └── har_multi_run_executive.html
 ├── scripts/                        # Core analysis scripts
 │   ├── break_har_for_single_analysis.py
 │   ├── analyze_single_har_performance.py
@@ -269,7 +304,40 @@ def analyze_multiple_runs(har_file_list):
 
 ### Quick Start Examples
 
-#### Single File Analysis
+#### Web GUI (Recommended)
+```bash
+# Launch the web-based GUI
+python app.py
+
+# Open your browser to: http://localhost:5000
+```
+
+**Using the Web GUI**:
+1. **Single File Analysis**:
+   - Click "Select HAR File" button or drag & drop a .har file
+   - Click "Analyze File" 
+   - View the generated report in your browser
+
+2. **Two-File Comparison**:
+   - Select your baseline HAR file
+   - Select your target HAR file  
+   - Click "Compare Files"
+   - Review the side-by-side comparison report
+
+3. **Multi-File Trends**:
+   - Select 2 or more HAR files
+   - Click "Analyze Trends"
+   - View the executive summary with performance trends
+
+**GUI Features**:
+- 🎯 **Drag & Drop**: Simply drag files onto the upload areas
+- ✅ **File Validation**: Automatic validation of file format and size (max 500MB)
+- 📊 **Progress Tracking**: Real-time feedback during analysis
+- 🌐 **Cross-Platform**: Works on Windows, macOS, and Linux
+- 📱 **Responsive**: Mobile-friendly interface
+- ⚡ **Fast**: Direct integration with analysis scripts
+
+#### Command Line Interface
 ```bash
 # Interactive demo with file selection
 python demo_single_file_report.py
