@@ -8,6 +8,7 @@ Werkzeug>=2.3.0  # WSGI utility library (required by Flask)
 
 # Optional dependencies for enhanced features
 colorama>=0.4.0  # For colored terminal output (required for CI/CD workflows)
+beautifulsoup4>=4.9.0  # For HTML parsing in critical path analysis (optional)
 
 # Development dependencies (uncomment if needed for development)
 # pytest>=6.0.0  # For running tests

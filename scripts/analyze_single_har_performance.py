@@ -13,6 +13,16 @@ import json
 import os
 import sys
 from pathlib import Path
+import re
+from urllib.parse import urlparse
+from collections import defaultdict
+
+# Optional dependency for enhanced HTML parsing
+try:
+    from bs4 import BeautifulSoup
+    HAS_BEAUTIFULSOUP = True
+except ImportError:
+    HAS_BEAUTIFULSOUP = False
 
 
 # --- Helper functions ---
@@ -346,6 +356,125 @@ def main(har_file=None, input_dir=None):
             f"Blocking third-parties detected: {', '.join(enhanced_tp_analysis['blocking_third_parties'])}"
         )
 
+    print(
+        "\n[CRITICAL PATH] CRITICAL RENDERING PATH ANALYSIS\n-----------------------------------------------"
+    )
+    
+    # Reconstruct full HAR data for critical path analysis
+    full_har_data = None
+    try:
+        # Start with header data
+        full_har_data = dict(header)
+        
+        # Load and combine all request chunks to get entries
+        entries = []
+        chunk_files = sorted([f for f in os.listdir(input_dir) if f.startswith("03_requests_chunk_")])
+        
+        for chunk_file in chunk_files:
+            chunk_path = os.path.join(input_dir, chunk_file)
+            try:
+                with open(chunk_path, 'r', encoding='utf-8') as f:
+                    chunk_data = json.load(f)
+                    entries.extend(chunk_data.get('entries', []))
+            except Exception as e:
+                print_warn(f"Failed to load chunk {chunk_file}: {e}")
+        
+        # Add entries to the full HAR data
+        if 'log' not in full_har_data:
+            full_har_data['log'] = {}
+        full_har_data['log']['entries'] = entries
+        
+        print_info(f"Reconstructed HAR data with {len(entries)} entries for critical path analysis")
+        
+    except Exception as e:
+        print_warn(f"Failed to reconstruct HAR data: {e}")
+        full_har_data = header  # Fallback to header only
+    
+    critical_path_analysis = analyze_critical_path(full_har_data, reqs)
+    
+    if critical_path_analysis.get("analysis_available", False):
+        blocking_count = critical_path_analysis["blocking_resources_count"]
+        css_count = critical_path_analysis.get("css_blocking_count", 0)
+        js_count = critical_path_analysis.get("js_blocking_count", 0)
+        critical_time = critical_path_analysis["critical_path_time_ms"]
+        
+        # Show source document info
+        source_doc = critical_path_analysis.get("source_document", {})
+        if source_doc:
+            print(f"Analyzing document: {source_doc.get('url', 'Unknown')[:80]}...")
+            print(f"Document content: {source_doc.get('content_length', 0):,} characters")
+        
+        # Show blocking resources summary
+        print(f"Render-blocking resources found: {blocking_count}")
+        if css_count > 0:
+            print_warn(f"  • {css_count} blocking CSS file(s)")
+        if js_count > 0:
+            print_warn(f"  • {js_count} blocking JavaScript file(s)")
+        
+        # Show critical path time
+        if critical_time > 0:
+            critical_time_formatted = critical_path_analysis.get("critical_path_time_formatted", f"{critical_time}ms")
+            if critical_time > 1500:
+                print_error(f"Critical path time: {critical_time_formatted} (CRITICAL - optimize immediately)")
+            elif critical_time > 800:
+                print_warn(f"Critical path time: {critical_time_formatted} (HIGH - optimization recommended)")
+            elif critical_time > 400:
+                print_warn(f"Critical path time: {critical_time_formatted} (MEDIUM - consider optimization)")
+            else:
+                print_ok(f"Critical path time: {critical_time_formatted} (LOW impact)")
+        
+        # Show top blocking resources
+        blocking_resources = critical_path_analysis.get("blocking_resources", [])
+        if blocking_resources:
+            # Sort by load time and show top 3
+            top_blocking = sorted(blocking_resources, key=lambda x: x.get('time', 0), reverse=True)[:3]
+            print("\nTop blocking resources:")
+            for i, resource in enumerate(top_blocking, 1):
+                url_short = resource['url'].split('/')[-1] or resource['url'].split('/')[-2]
+                size_info = f"{resource.get('size', 0)/1024:.1f}KB" if resource.get('size', 0) > 0 else "Unknown size"
+                time_info = f"{resource.get('time', 0):.0f}ms" if resource.get('time', 0) > 0 else "Unknown time"
+                found_status = "OK" if resource.get('found_in_har', True) else "MISS"
+                print(f"  {i}. [{resource.get('type', 'unknown')}] {url_short} ({size_info}, {time_info}) [{found_status}]")
+        
+        # Show recommendations
+        recommendations = critical_path_analysis.get("recommendations", [])
+        if recommendations:
+            print("\nCritical path optimization recommendations:")
+            for i, rec in enumerate(recommendations[:4], 1):  # Show top 4
+                print(f"  {i}. {rec}")
+        
+        # Overall assessment
+        if blocking_count == 0:
+            print_ok("Excellent! No render-blocking resources detected in document head")
+        elif blocking_count <= 2 and critical_time <= 500:
+            print_ok("Good! Minimal render-blocking impact detected")
+        elif blocking_count <= 5 and critical_time <= 1000:
+            print_warn("WARNING: Moderate render-blocking impact - optimization recommended")
+        else:
+            print_error("CRITICAL: High render-blocking impact - immediate optimization needed")
+            
+    else:
+        error_msg = critical_path_analysis.get("error", "Unknown error")
+        print_warn(f"Critical Path Analysis Unavailable")
+        print_error(f"Reason: {error_msg}")
+        
+        # Show debug information if available
+        debug_info = critical_path_analysis.get("debug_info", {})
+        if debug_info:
+            total_entries = debug_info.get("total_entries", 0)
+            print(f"Debug: Found {total_entries} total entries in HAR file")
+            
+            if "suggestion" in debug_info:
+                print_warn(f"TIP: {debug_info['suggestion']}")
+            
+            if "first_few_urls" in debug_info:
+                print("First few URLs in HAR file:")
+                for i, url in enumerate(debug_info["first_few_urls"], 1):
+                    print(f"  {i}. {url}...")
+            
+            if "selected_url" in debug_info:
+                print(f"Selected document: {debug_info['selected_url']}")
+
     print_ok("Analysis Complete!")
     print("Check Performance_Analysis_Report.md for detailed recommendations.")
 
@@ -360,6 +489,7 @@ def main(har_file=None, input_dir=None):
             "caching": cache_analysis,
             "dns_connection": dns_analysis,
             "enhanced_third_party": enhanced_tp_analysis,
+            "critical_path": critical_path_analysis,
         },
     )
     print(json.dumps(agent_summary, indent=2))
@@ -370,6 +500,335 @@ def main(har_file=None, input_dir=None):
     ) as f:
         json.dump(agent_summary, f, indent=2)
     print_ok("Agent summary saved to agent_summary.json")
+
+
+def analyze_critical_path(har_data: dict, reqs: list) -> dict:
+    """Analyze critical rendering path from HAR data and requests.
+    
+    Enhanced version with robust HTML document detection and better error handling.
+    
+    Args:
+        har_data: The full HAR file data structure
+        reqs: List of processed request objects
+        
+    Returns:
+        Dict containing critical path analysis results
+    """
+    try:
+        entries = har_data.get('log', {}).get('entries', [])
+        if not entries:
+            return {
+                "error": "No entries found in HAR file",
+                "blocking_resources": [],
+                "analysis_available": False,
+                "debug_info": {"total_entries": 0}
+            }
+        
+        # Strategy 1: Find HTML documents with content
+        html_candidates = []
+        for i, entry in enumerate(entries):
+            response = entry.get('response', {})
+            content = response.get('content', {})
+            request = entry.get('request', {})
+            
+            url = request.get('url', '')
+            method = request.get('method', 'GET')
+            status = response.get('status', 0)
+            mime_type = content.get('mimeType', '').lower()
+            encoding = content.get('encoding', '')
+            text = content.get('text', '')
+            
+            # Multiple criteria for HTML detection
+            is_html_mime = 'text/html' in mime_type or 'application/xhtml' in mime_type
+            is_html_url = url.endswith('.html') or url.endswith('.htm') or url.endswith('/')
+            has_html_content = text and ('<html' in text.lower() or '<head' in text.lower() or '<!doctype html' in text.lower())
+            
+            # Decode base64 content if needed
+            actual_content = text
+            if encoding == 'base64' and text:
+                try:
+                    import base64
+                    actual_content = base64.b64decode(text).decode('utf-8', errors='ignore')
+                    has_html_content = '<html' in actual_content.lower() or '<head' in actual_content.lower() or '<!doctype html' in actual_content.lower()
+                except Exception:
+                    actual_content = text
+            
+            # Consider as HTML candidate if it meets criteria
+            if (is_html_mime or is_html_url or has_html_content) and method == 'GET' and status == 200:
+                html_candidates.append({
+                    'entry': entry,
+                    'index': i,
+                    'url': url,
+                    'mime_type': mime_type,
+                    'has_content': bool(actual_content.strip()),
+                    'content_length': len(actual_content.strip()) if actual_content else 0,
+                    'actual_content': actual_content,
+                    'is_main_document': i == 0 or ('/' == url.split('/')[-1] and len(url.split('/')) <= 4)  # Heuristic for main document
+                })
+        
+        if not html_candidates:
+            return {
+                "error": "No HTML document found in HAR file",
+                "blocking_resources": [],
+                "analysis_available": False,
+                "debug_info": {
+                    "total_entries": len(entries),
+                    "suggestion": "Ensure HAR capture includes main HTML document with response body",
+                    "first_few_urls": [entries[i].get('request', {}).get('url', '')[:100] for i in range(min(3, len(entries)))]
+                }
+            }
+        
+        # Strategy 2: Select the best HTML candidate
+        # Prioritize main document, then by content length
+        best_candidate = None
+        
+        # First, try to find the main document (usually first entry or root path)
+        main_docs = [c for c in html_candidates if c['is_main_document'] and c['has_content']]
+        if main_docs:
+            best_candidate = max(main_docs, key=lambda x: x['content_length'])
+        
+        # Fallback: find any HTML document with content
+        if not best_candidate:
+            content_docs = [c for c in html_candidates if c['has_content']]
+            if content_docs:
+                best_candidate = max(content_docs, key=lambda x: x['content_length'])
+        
+        # Last resort: take any HTML document (even without content)
+        if not best_candidate:
+            best_candidate = html_candidates[0]
+        
+        html_content = best_candidate['actual_content']
+        if not html_content or not html_content.strip():
+            return {
+                "error": f"HTML document found but content is empty (URL: {best_candidate['url']})",
+                "blocking_resources": [],
+                "analysis_available": False,
+                "debug_info": {
+                    "selected_url": best_candidate['url'],
+                    "html_candidates_count": len(html_candidates),
+                    "suggestion": "Ensure HAR capture includes response bodies (check DevTools settings)"
+                }
+            }
+        
+        # Parse critical resources from HTML
+        blocking_resources = parse_critical_resources(html_content, reqs)
+        
+        # Calculate critical path metrics
+        critical_path_time = calculate_critical_path_time(blocking_resources)
+        recommendations = generate_critical_path_recommendations(blocking_resources)
+        
+        return {
+            "blocking_resources": blocking_resources,
+            "blocking_resources_count": len(blocking_resources),
+            "css_blocking_count": len([r for r in blocking_resources if r.get('type') == 'stylesheet']),
+            "js_blocking_count": len([r for r in blocking_resources if r.get('type') == 'script']),
+            "critical_path_time_ms": critical_path_time,
+            "critical_path_time_formatted": f"{critical_path_time:.0f}ms",
+            "has_render_blocking_css": any(r.get("type") == "stylesheet" for r in blocking_resources),
+            "has_render_blocking_js": any(r.get("type") == "script" for r in blocking_resources),
+            "recommendations": recommendations,
+            "analysis_available": True,
+            "source_document": {
+                "url": best_candidate['url'],
+                "content_length": best_candidate['content_length'],
+                "index": best_candidate['index']
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "error": f"Critical path analysis failed: {str(e)}",
+            "blocking_resources": [],
+            "analysis_available": False,
+            "debug_info": {"exception": str(e)}
+        }
+
+
+def parse_critical_resources(html_content: str, reqs: list) -> list:
+    """Parse HTML to identify critical rendering path resources.
+    
+    Args:
+        html_content: The HTML content of the main document
+        reqs: List of all requests for correlation
+        
+    Returns:
+        List of critical path resources
+    """
+    blocking_resources = []
+    
+    # Create a lookup for fast request correlation
+    url_to_request = {req['url']: req for req in reqs}
+    
+    if HAS_BEAUTIFULSOUP:
+        # Use BeautifulSoup for robust HTML parsing
+        blocking_resources = parse_with_beautifulsoup(html_content, url_to_request)
+    else:
+        # Fallback to regex-based parsing
+        blocking_resources = parse_with_regex(html_content, url_to_request)
+    
+    return blocking_resources
+
+
+def parse_with_beautifulsoup(html_content: str, url_to_request: dict) -> list:
+    """Parse HTML using BeautifulSoup to find critical resources."""
+    try:
+        # Limit HTML content to first 1MB to prevent memory issues
+        html_content = html_content[:1024*1024]
+        soup = BeautifulSoup(html_content, 'html.parser')
+        blocking_resources = []
+        
+        # Find head section
+        head = soup.find('head')
+        if not head:
+            return []
+        
+        # Find all stylesheets in head (always render-blocking)
+        for link in head.find_all('link', rel='stylesheet'):
+            href = link.get('href')
+            if href:
+                # Convert relative URLs to absolute if needed
+                resource = correlate_with_request(href, url_to_request, 'stylesheet')
+                if resource:
+                    blocking_resources.append(resource)
+        
+        # Find all scripts in head without async/defer (render-blocking)
+        for script in head.find_all('script'):
+            src = script.get('src')
+            if src and not script.get('async') and not script.get('defer'):
+                resource = correlate_with_request(src, url_to_request, 'script')
+                if resource:
+                    blocking_resources.append(resource)
+        
+        return blocking_resources
+        
+    except Exception as e:
+        print_warn(f"BeautifulSoup parsing failed: {e}, falling back to regex")
+        return parse_with_regex(html_content, url_to_request)
+
+
+def parse_with_regex(html_content: str, url_to_request: dict) -> list:
+    """Parse HTML using regex patterns as fallback method."""
+    blocking_resources = []
+    
+    # Limit content size for performance
+    html_content = html_content[:1024*1024]
+    
+    # Find head section
+    head_match = re.search(r'<head[^>]*>(.*?)</head>', html_content, re.DOTALL | re.IGNORECASE)
+    if not head_match:
+        return []
+    
+    head_content = head_match.group(1)
+    
+    # Find stylesheets (always render-blocking)
+    css_pattern = r'<link[^>]*rel=["\']stylesheet["\'][^>]*href=["\']([^"\']+)["\'][^>]*>'
+    for match in re.finditer(css_pattern, head_content, re.IGNORECASE):
+        href = match.group(1)
+        resource = correlate_with_request(href, url_to_request, 'stylesheet')
+        if resource:
+            blocking_resources.append(resource)
+    
+    # Find render-blocking scripts (no async/defer in head)
+    script_pattern = r'<script[^>]*src=["\']([^"\']+)["\'][^>]*>'
+    for match in re.finditer(script_pattern, head_content, re.IGNORECASE):
+        script_tag = match.group(0)
+        src = match.group(1)
+        
+        # Check if script has async or defer attributes
+        if not re.search(r'\basync\b', script_tag, re.IGNORECASE) and \
+           not re.search(r'\bdefer\b', script_tag, re.IGNORECASE):
+            resource = correlate_with_request(src, url_to_request, 'script')
+            if resource:
+                blocking_resources.append(resource)
+    
+    return blocking_resources
+
+
+def correlate_with_request(resource_url: str, url_to_request: dict, resource_type: str) -> dict:
+    """Correlate a parsed resource URL with an actual request.
+    
+    Args:
+        resource_url: The URL from HTML parsing
+        url_to_request: Dictionary mapping URLs to request objects
+        resource_type: Type of resource ('stylesheet' or 'script')
+        
+    Returns:
+        Resource object with timing data, or None if not found
+    """
+    # Try exact match first
+    if resource_url in url_to_request:
+        req = url_to_request[resource_url]
+        return create_resource_object(req, resource_type)
+    
+    # Try partial matches for relative URLs
+    for url, req in url_to_request.items():
+        if url.endswith(resource_url) or resource_url in url:
+            return create_resource_object(req, resource_type)
+    
+    # If no match found, create a minimal object
+    return {
+        "url": resource_url,
+        "type": resource_type,
+        "size": 0,
+        "time": 0,
+        "found_in_har": False
+    }
+
+
+def create_resource_object(req: dict, resource_type: str) -> dict:
+    """Create a standardized resource object from a request."""
+    return {
+        "url": req['url'],
+        "type": resource_type,
+        "size": req.get('size', 0),
+        "time": req.get('time', 0),
+        "status": req.get('status', 200),
+        "found_in_har": True
+    }
+
+
+def calculate_critical_path_time(blocking_resources: list) -> float:
+    """Calculate the total time for critical path resources.
+    
+    Note: This is a simplified calculation. In reality, resources may load
+    in parallel, but this gives an estimate of critical path impact.
+    """
+    # Get maximum time of blocking resources (assuming parallel loading)
+    if not blocking_resources:
+        return 0
+    
+    valid_times = [r['time'] for r in blocking_resources if r.get('found_in_har', True)]
+    return max(valid_times) if valid_times else 0
+
+
+def generate_critical_path_recommendations(blocking_resources: list) -> list:
+    """Generate actionable recommendations for critical path optimization."""
+    recommendations = []
+    
+    css_count = sum(1 for r in blocking_resources if r['type'] == 'stylesheet')
+    js_count = sum(1 for r in blocking_resources if r['type'] == 'script')
+    
+    if css_count > 3:
+        recommendations.append(f"Consider bundling {css_count} CSS files into fewer files to reduce critical path")
+    
+    if js_count > 0:
+        recommendations.append(f"Add 'async' or 'defer' attributes to {js_count} JavaScript files to prevent render blocking")
+    
+    large_resources = [r for r in blocking_resources if r.get('size', 0) > 50000]  # >50KB
+    if large_resources:
+        recommendations.append(f"Optimize {len(large_resources)} large critical resources (>50KB) to improve loading speed")
+    
+    slow_resources = [r for r in blocking_resources if r.get('time', 0) > 1000]  # >1s
+    if slow_resources:
+        recommendations.append(f"Investigate {len(slow_resources)} slow-loading critical resources (>1s)")
+    
+    if css_count > 0:
+        recommendations.append("Consider inlining critical CSS for above-the-fold content")
+    
+    if not recommendations:
+        recommendations.append("Critical path appears well-optimized")
+    
+    return recommendations
 
 
 def generate_agent_summary(summary, header, enhanced_analysis=None):
@@ -457,6 +916,7 @@ def generate_agent_summary(summary, header, enhanced_analysis=None):
                     "enhanced_third_party_analysis": enhanced_analysis.get(
                         "enhanced_third_party", {}
                     ),
+                    "critical_path_analysis": enhanced_analysis.get("critical_path", {}),
                 }
             )
 

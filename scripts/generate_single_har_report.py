@@ -135,6 +135,7 @@ def _process_analysis_data(analysis_data: Dict[str, Any]) -> Dict[str, Any]:
         "enhanced_third_party_analysis": analysis_data.get(
             "enhanced_third_party_analysis", {}
         ),
+        "critical_path_analysis": analysis_data.get("critical_path_analysis", {}),
         "recommendations": analysis_data.get("recommendations", []),
         "timing_breakdown": analysis_data.get("timing_breakdown", {}),
         "domain_analysis": analysis_data.get("domain_analysis", {}),

@@ -666,6 +666,77 @@
                 opacity: 1;
             }
         }
+
+        /* Alert Styles */
+        .alert {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid;
+            margin: 20px 0;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #e1f5fe 0%, #f3f4f6 100%);
+            border-color: var(--info-color);
+            color: var(--gray-700);
+        }
+
+        .alert-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-content strong {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--gray-800);
+        }
+
+        .alert-content small {
+            opacity: 0.8;
+        }
+
+        /* Recommendations List Styles */
+        .recommendations-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .recommendation-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--gray-50) 0%, white 100%);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .recommendation-item:hover {
+            border-color: var(--primary-color);
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+        }
+
+        .recommendation-icon {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            flex-shrink: 0;
+        }
+
+        .recommendation-text {
+            flex: 1;
+            color: var(--gray-700);
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -803,6 +874,186 @@
                 </div>
             </div>
         </div>
+
+        <!-- Critical Rendering Path Analysis -->
+        {% if critical_path_analysis and critical_path_analysis.analysis_available %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🛣️ Critical Rendering Path</h2>
+                    <p class="section-subtitle">Analysis of render-blocking resources affecting initial page load</p>
+                </div>
+                <div class="section-badge">
+                    {% if critical_path_analysis.blocking_resources_count > 0 %}
+                        {{ critical_path_analysis.blocking_resources_count }} Blocking Resources
+                    {% else %}
+                        Optimized
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Critical Path Overview -->
+            <div class="metrics-grid">
+                <div class="metric-card 
+                    {% if critical_path_analysis.blocking_resources_count == 0 %}success
+                    {% elif critical_path_analysis.blocking_resources_count <= 3 %}warning
+                    {% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.blocking_resources_count }}</div>
+                    <div class="metric-label">Blocking Resources</div>
+                    <div class="metric-sublabel">Resources that block rendering</div>
+                </div>
+                
+                {% if critical_path_analysis.critical_path_time_ms > 0 %}
+                <div class="metric-card 
+                    {% if critical_path_analysis.critical_path_time_ms < 1000 %}success
+                    {% elif critical_path_analysis.critical_path_time_ms < 3000 %}warning
+                    {% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.critical_path_time_ms|round }}ms</div>
+                    <div class="metric-label">Critical Path Time</div>
+                    <div class="metric-sublabel">Longest blocking resource</div>
+                </div>
+                {% endif %}
+
+                <div class="metric-card {% if critical_path_analysis.has_render_blocking_css %}danger{% else %}success{% endif %}">
+                    <div class="metric-value">
+                        {% if critical_path_analysis.has_render_blocking_css %}Yes{% else %}No{% endif %}
+                    </div>
+                    <div class="metric-label">Blocking CSS</div>
+                    <div class="metric-sublabel">Render-blocking stylesheets</div>
+                </div>
+
+                <div class="metric-card {% if critical_path_analysis.has_render_blocking_js %}danger{% else %}success{% endif %}">
+                    <div class="metric-value">
+                        {% if critical_path_analysis.has_render_blocking_js %}Yes{% else %}No{% endif %}
+                    </div>
+                    <div class="metric-label">Blocking JavaScript</div>
+                    <div class="metric-sublabel">Synchronous scripts in head</div>
+                </div>
+            </div>
+
+            {% if critical_path_analysis.blocking_resources %}
+            <!-- Blocking Resources Table -->
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('blocking-resources')">
+                    <h4>⚠️ Render-Blocking Resources</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="blocking-resources">
+                    <div class="table-container">
+                        <table class="enhanced-table">
+                            <thead>
+                                <tr>
+                                    <th>Resource</th>
+                                    <th>Type</th>
+                                    <th>Size</th>
+                                    <th>Load Time</th>
+                                    <th>Impact</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for resource in critical_path_analysis.blocking_resources %}
+                                <tr>
+                                    <td class="url-cell" title="{{ resource.url }}">
+                                        {{ resource.url|truncate(50) }}
+                                    </td>
+                                    <td>
+                                        {% if resource.type == 'stylesheet' %}
+                                        <span class="status-badge status-info">CSS</span>
+                                        {% elif resource.type == 'script' %}
+                                        <span class="status-badge status-warning">JavaScript</span>
+                                        {% else %}
+                                        <span class="status-badge status-2xx">{{ resource.type|title }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resource.found_in_har and resource.size > 0 %}
+                                            {{ (resource.size / 1024)|round(1) }} KB
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resource.found_in_har and resource.time > 0 %}
+                                            {{ resource.time|round }}ms
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resource.time > 1000 %}
+                                        <span class="status-badge status-4xx">High</span>
+                                        {% elif resource.time > 500 %}
+                                        <span class="status-badge status-3xx">Medium</span>
+                                        {% elif resource.time > 0 %}
+                                        <span class="status-badge status-2xx">Low</span>
+                                        {% else %}
+                                        <span class="status-badge status-2xx">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resource.type == 'script' %}
+                                        Add async/defer attribute
+                                        {% elif resource.type == 'stylesheet' %}
+                                        Consider inlining critical CSS
+                                        {% else %}
+                                        Optimize resource loading
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Critical Path Recommendations -->
+            {% if critical_path_analysis.recommendations %}
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('critical-path-recommendations')">
+                    <h4>💡 Critical Path Optimization Recommendations</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="critical-path-recommendations">
+                    <div class="recommendations-list">
+                        {% for recommendation in critical_path_analysis.recommendations %}
+                        <div class="recommendation-item">
+                            <div class="recommendation-icon">🔧</div>
+                            <div class="recommendation-text">{{ recommendation }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% elif critical_path_analysis and not critical_path_analysis.analysis_available %}
+        <!-- Critical Path Analysis Unavailable -->
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🛣️ Critical Rendering Path</h2>
+                    <p class="section-subtitle">Analysis of render-blocking resources</p>
+                </div>
+                <div class="section-badge">Unavailable</div>
+            </div>
+            
+            <div class="alert alert-info">
+                <div class="alert-icon">ℹ️</div>
+                <div class="alert-content">
+                    <strong>Critical Path Analysis Unavailable</strong><br>
+                    {% if critical_path_analysis.error %}
+                        {{ critical_path_analysis.error }}
+                    {% else %}
+                        Unable to analyze critical rendering path from the provided HAR file.
+                    {% endif %}
+                    <br><small>Ensure the HAR file contains the main HTML document with content.</small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Enhanced Third-Party Analysis -->
         {% if third_party_analysis %}
