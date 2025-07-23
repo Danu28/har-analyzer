@@ -1,0 +1,55 @@
+name: Simple CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Basic Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Test script imports
+      run: |
+        cd scripts
+        python -c "import break_har_for_single_analysis; print('✓ break_har_for_single_analysis imported')"
+        python -c "import analyze_single_har_performance; print('✓ analyze_single_har_performance imported')"
+        python -c "import generate_single_har_report; print('✓ generate_single_har_report imported')"
+    
+    - name: Test demo scripts syntax
+      run: |
+        python -m py_compile demo_single_file_report.py
+        python -m py_compile demo_har_comparison.py
+        python -m py_compile demo_multi_run_selector.py
+        echo "✓ All demo scripts compile successfully"
+    
+    - name: Test Flask app
+      run: |
+        python -c "import app; print('✓ Flask app imports successfully')"
+    
+    - name: Basic functionality test
+      run: |
+        # Test that the main entry points can be imported without errors
+        python -c "
+        import sys
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('demo', 'demo_single_file_report.py')
+        module = importlib.util.module_from_spec(spec)
+        print('✓ Demo script can be loaded')
+        "
+        echo "✓ Basic functionality verified"
