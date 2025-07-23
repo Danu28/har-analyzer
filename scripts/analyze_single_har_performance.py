@@ -443,6 +443,108 @@ def main(har_file=None, input_dir=None):
             for i, rec in enumerate(recommendations[:4], 1):  # Show top 4
                 print(f"  {i}. {rec}")
         
+        # Enhanced features display
+        if critical_path_analysis.get("enhancement_level") == "advanced":
+            # Core Web Vitals display
+            cwv = critical_path_analysis.get("core_web_vitals", {})
+            if cwv:
+                print("\n[CORE WEB VITALS] Performance Metrics")
+                print("-" * 35)
+                
+                lcp = cwv.get("largest_contentful_paint", {})
+                fid = cwv.get("first_input_delay", {})
+                cls = cwv.get("cumulative_layout_shift", {})
+                
+                def format_rating(rating):
+                    if rating == "good": return print_ok("GOOD")
+                    elif rating == "needs_improvement": return print_warn("NEEDS IMPROVEMENT")
+                    else: return print_error("POOR")
+                
+                print(f"Largest Contentful Paint: {lcp.get('time_formatted', 'N/A')} ", end="")
+                format_rating(lcp.get('rating', 'unknown'))
+                
+                print(f"First Input Delay (est.): {fid.get('time_formatted', 'N/A')} ", end="")
+                format_rating(fid.get('rating', 'unknown'))
+                
+                print(f"Cumulative Layout Shift: {cls.get('score', 'N/A')} ", end="")
+                format_rating(cls.get('rating', 'unknown'))
+                
+                overall = cwv.get("overall_rating", {})
+                good_count = overall.get("good", 0)
+                poor_count = overall.get("poor", 0)
+                
+                if good_count == 3:
+                    print_ok("Overall Core Web Vitals: EXCELLENT (3/3 good)")
+                elif good_count >= 2:
+                    print_warn("Overall Core Web Vitals: GOOD (needs minor improvement)")
+                elif poor_count >= 2:
+                    print_error("Overall Core Web Vitals: POOR (needs major optimization)")
+                else:
+                    print_warn("Overall Core Web Vitals: FAIR (room for improvement)")
+            
+            # Progressive Loading Analysis
+            prog = critical_path_analysis.get("progressive_loading", {})
+            if prog:
+                print("\n[PROGRESSIVE LOADING] Resource Prioritization")
+                print("-" * 45)
+                
+                critical_res = prog.get("critical_resources", {})
+                important_res = prog.get("important_resources", {})
+                deferred_res = prog.get("deferred_resources", {})
+                
+                print(f"Critical resources: {critical_res.get('count', 0)} ({critical_res.get('total_size_kb', 0):.1f}KB)")
+                print(f"Important resources: {important_res.get('count', 0)} ({important_res.get('total_size_kb', 0):.1f}KB)")
+                print(f"Deferred resources: {deferred_res.get('count', 0)} ({deferred_res.get('total_size_kb', 0):.1f}KB)")
+                
+                loading_seq = prog.get("loading_sequence", {})
+                if loading_seq.get("is_well_sequenced"):
+                    print_ok("Resource loading sequence: Well-prioritized")
+                else:
+                    print_warn("Resource loading sequence: Needs better prioritization")
+                
+                score = prog.get("progressive_loading_score", {})
+                score_value = score.get("score", 0)
+                score_rating = score.get("rating", "unknown")
+                
+                print(f"Progressive loading score: {score_value}/100 ", end="")
+                if score_rating == "good":
+                    print_ok("(GOOD)")
+                elif score_rating == "needs_improvement":
+                    print_warn("(NEEDS IMPROVEMENT)")
+                else:
+                    print_error("(POOR)")
+                
+                opportunities = prog.get("optimization_opportunities", [])
+                if opportunities:
+                    print("\nProgressive loading opportunities:")
+                    for i, opp in enumerate(opportunities[:3], 1):  # Top 3
+                        print(f"  {i}. {opp}")
+            
+            # High-Impact Resource Prioritization
+            opt_priority = critical_path_analysis.get("optimization_priority", {})
+            if opt_priority:
+                high_impact = opt_priority.get("high_impact_resources", [])
+                quick_wins = opt_priority.get("quick_wins", [])
+                
+                if high_impact:
+                    print("\n[HIGH IMPACT] Priority Optimization Targets")
+                    print("-" * 42)
+                    for i, resource in enumerate(high_impact[:3], 1):  # Top 3
+                        url_short = resource.get('url', '')[-50:] if len(resource.get('url', '')) > 50 else resource.get('url', '')
+                        score = resource.get('impact_score', 0)
+                        size_kb = resource.get('size', 0) / 1024 if resource.get('size', 0) else 0
+                        time_ms = resource.get('time', 0)
+                        print(f"  {i}. [Impact: {score}/100] {resource.get('type', '')} - {url_short}")
+                        print(f"     Size: {size_kb:.1f}KB, Time: {time_ms:.0f}ms")
+                
+                if quick_wins:
+                    print("\n[QUICK WINS] Easy Optimization Opportunities")
+                    print("-" * 44)
+                    for i, resource in enumerate(quick_wins[:2], 1):  # Top 2
+                        url_short = resource.get('url', '')[-50:] if len(resource.get('url', '')) > 50 else resource.get('url', '')
+                        print(f"  {i}. {resource.get('type', '')} - {url_short}")
+                        print(f"     Quick fix: Add 'async' or 'defer' attribute")
+        
         # Overall assessment
         if blocking_count == 0:
             print_ok("Excellent! No render-blocking resources detected in document head")
@@ -503,16 +605,20 @@ def main(har_file=None, input_dir=None):
 
 
 def analyze_critical_path(har_data: dict, reqs: list) -> dict:
-    """Analyze critical rendering path from HAR data and requests.
+    """Enhanced critical rendering path analysis with Core Web Vitals and progressive loading.
     
-    Enhanced version with robust HTML document detection and better error handling.
+    This function provides comprehensive critical path analysis including:
+    - Core Web Vitals calculation (LCP, FID, CLS estimation)
+    - Progressive loading analysis
+    - Above-the-fold content prioritization
+    - Render-blocking resource impact scoring
     
     Args:
         har_data: The full HAR file data structure
         reqs: List of processed request objects
         
     Returns:
-        Dict containing critical path analysis results
+        Dict containing enhanced critical path analysis results
     """
     try:
         entries = har_data.get('log', {}).get('entries', [])
@@ -617,6 +723,15 @@ def analyze_critical_path(har_data: dict, reqs: list) -> dict:
         critical_path_time = calculate_critical_path_time(blocking_resources)
         recommendations = generate_critical_path_recommendations(blocking_resources)
         
+        # Enhanced analysis: Core Web Vitals
+        core_web_vitals = calculate_core_web_vitals(har_data, reqs)
+        
+        # Enhanced analysis: Progressive loading
+        progressive_loading = analyze_progressive_loading(reqs)
+        
+        # Enhanced analysis: Resource impact scoring
+        scored_blocking_resources = calculate_resource_impact_scores(blocking_resources)
+        
         return {
             "blocking_resources": blocking_resources,
             "blocking_resources_count": len(blocking_resources),
@@ -632,6 +747,16 @@ def analyze_critical_path(har_data: dict, reqs: list) -> dict:
                 "url": best_candidate['url'],
                 "content_length": best_candidate['content_length'],
                 "index": best_candidate['index']
+            },
+            # Enhanced features
+            "core_web_vitals": core_web_vitals,
+            "progressive_loading": progressive_loading,
+            "impact_scored_resources": scored_blocking_resources,
+            "enhancement_level": "advanced",
+            "optimization_priority": {
+                "high_impact_resources": [r for r in scored_blocking_resources if r['priority'] == 'high'],
+                "quick_wins": [r for r in scored_blocking_resources if r['priority'] == 'medium' and r.get('time', 0) < 1000],
+                "progressive_opportunities": progressive_loading.get('optimization_opportunities', [])
             }
         }
         
@@ -829,6 +954,268 @@ def generate_critical_path_recommendations(blocking_resources: list) -> list:
         recommendations.append("Critical path appears well-optimized")
     
     return recommendations
+
+
+def calculate_core_web_vitals(har_data: dict, reqs: list) -> dict:
+    """Calculate Core Web Vitals metrics from HAR data.
+    
+    Estimates LCP, FID, and CLS based on HAR timing and resource data.
+    
+    Returns:
+        Dict containing Core Web Vitals metrics and ratings
+    """
+    entries = har_data.get('log', {}).get('entries', [])
+    
+    # Calculate Largest Contentful Paint (LCP) - estimate from largest image/text resource
+    lcp_candidates = []
+    for req in reqs:
+        # Consider images, fonts, and large text resources as LCP candidates
+        if (req.get('resourceType') in ['image', 'font'] or 
+            (req.get('resourceType') == 'fetch' and req.get('size', 0) > 10000)):
+            
+            # LCP time = start time + response time
+            start_time = req.get('startTime', 0)
+            response_time = req.get('time', 0)
+            lcp_time = start_time + response_time
+            
+            lcp_candidates.append({
+                'url': req['url'],
+                'size': req.get('size', 0),
+                'time': lcp_time,
+                'type': req.get('resourceType', 'unknown')
+            })
+    
+    # LCP is typically the largest resource by size that loads
+    if lcp_candidates:
+        largest_candidate = max(lcp_candidates, key=lambda x: x['size'])
+        lcp_time = largest_candidate['time']
+    else:
+        # Fallback: use DOM content loaded time
+        page_timings = har_data.get('log', {}).get('pages', [{}])[0].get('pageTimings', {})
+        lcp_time = page_timings.get('onContentLoad', 0)
+    
+    # First Input Delay (FID) - estimate from JavaScript execution time
+    js_execution_time = sum(req.get('time', 0) for req in reqs 
+                           if req.get('resourceType') == 'script' and req.get('time', 0) > 50)
+    
+    # Estimate FID based on main thread blocking time
+    fid_estimate = min(js_execution_time / 10, 300)  # Conservative estimate, max 300ms
+    
+    # Cumulative Layout Shift (CLS) - difficult to estimate from HAR, use heuristics
+    # Look for late-loading resources that might cause shifts
+    late_resources = [req for req in reqs 
+                     if req.get('startTime', 0) > 1000 and  # Loads after 1s
+                        req.get('resourceType') in ['image', 'font']]
+    
+    # Rough CLS estimate based on late-loading visual resources
+    cls_estimate = min(len(late_resources) * 0.05, 0.5)  # 0.05 per late resource, max 0.5
+    
+    # Rate the metrics according to Core Web Vitals thresholds
+    def rate_lcp(time_ms):
+        if time_ms <= 2500: return "good"
+        elif time_ms <= 4000: return "needs_improvement"
+        else: return "poor"
+    
+    def rate_fid(time_ms):
+        if time_ms <= 100: return "good"
+        elif time_ms <= 300: return "needs_improvement"
+        else: return "poor"
+    
+    def rate_cls(score):
+        if score <= 0.1: return "good"
+        elif score <= 0.25: return "needs_improvement"
+        else: return "poor"
+    
+    return {
+        "largest_contentful_paint": {
+            "time_ms": lcp_time,
+            "time_formatted": f"{lcp_time:.0f}ms",
+            "rating": rate_lcp(lcp_time),
+            "target": "≤2.5s",
+            "candidate_resource": largest_candidate if lcp_candidates else None
+        },
+        "first_input_delay": {
+            "time_ms": fid_estimate,
+            "time_formatted": f"{fid_estimate:.0f}ms",
+            "rating": rate_fid(fid_estimate),
+            "target": "≤100ms",
+            "estimated": True
+        },
+        "cumulative_layout_shift": {
+            "score": cls_estimate,
+            "rating": rate_cls(cls_estimate),
+            "target": "≤0.1",
+            "estimated": True,
+            "late_loading_resources": len(late_resources)
+        },
+        "overall_rating": {
+            "good": sum(1 for metric in [rate_lcp(lcp_time), rate_fid(fid_estimate), rate_cls(cls_estimate)] if metric == "good"),
+            "needs_improvement": sum(1 for metric in [rate_lcp(lcp_time), rate_fid(fid_estimate), rate_cls(cls_estimate)] if metric == "needs_improvement"),
+            "poor": sum(1 for metric in [rate_lcp(lcp_time), rate_fid(fid_estimate), rate_cls(cls_estimate)] if metric == "poor")
+        }
+    }
+
+
+def analyze_progressive_loading(reqs: list) -> dict:
+    """Analyze progressive loading patterns and above-the-fold optimization.
+    
+    Returns:
+        Dict containing progressive loading analysis
+    """
+    # Categorize resources by loading priority
+    critical_resources = []    # Should load first (HTML, critical CSS/JS)
+    important_resources = []   # Should load early (above-the-fold images, fonts)
+    deferred_resources = []    # Can load later (below-the-fold content, analytics)
+    
+    for req in reqs:
+        resource_type = req.get('resourceType', 'unknown')
+        url = req.get('url', '')
+        start_time = req.get('startTime', 0)
+        size = req.get('size', 0)
+        
+        # Categorize based on resource type and characteristics
+        if resource_type == 'document':
+            critical_resources.append(req)
+        elif resource_type in ['stylesheet', 'script'] and start_time < 1000:  # Early loading
+            if any(keyword in url.lower() for keyword in ['critical', 'main', 'app', 'vendor']):
+                critical_resources.append(req)
+            else:
+                important_resources.append(req)
+        elif resource_type in ['image', 'font'] and size > 10000:  # Large visual resources
+            if start_time < 2000:  # Loads early, likely above-the-fold
+                important_resources.append(req)
+            else:
+                deferred_resources.append(req)
+        elif resource_type in ['ping', 'xhr', 'fetch']:
+            if any(keyword in url.lower() for keyword in ['analytics', 'tracking', 'ads']):
+                deferred_resources.append(req)
+            else:
+                important_resources.append(req)
+        else:
+            deferred_resources.append(req)
+    
+    # Analyze loading sequence
+    critical_load_time = max([req.get('startTime', 0) + req.get('time', 0) 
+                             for req in critical_resources], default=0)
+    important_load_time = max([req.get('startTime', 0) + req.get('time', 0) 
+                              for req in important_resources], default=0)
+    
+    # Calculate loading efficiency
+    total_critical_size = sum(req.get('size', 0) for req in critical_resources)
+    total_important_size = sum(req.get('size', 0) for req in important_resources)
+    total_deferred_size = sum(req.get('size', 0) for req in deferred_resources)
+    
+    # Identify optimization opportunities
+    opportunities = []
+    
+    # Check for critical path bloat
+    if len(critical_resources) > 10:
+        opportunities.append(f"Too many critical resources ({len(critical_resources)}). Consider bundling.")
+    
+    # Check for early loading of non-critical resources
+    early_analytics = [req for req in deferred_resources 
+                      if req.get('startTime', 0) < 1000 and 
+                         any(keyword in req.get('url', '').lower() for keyword in ['analytics', 'ads', 'tracking'])]
+    if early_analytics:
+        opportunities.append(f"Analytics/tracking scripts loading too early ({len(early_analytics)} resources)")
+    
+    # Check for large images loading early
+    large_early_images = [req for req in important_resources 
+                         if req.get('resourceType') == 'image' and 
+                            req.get('size', 0) > 500000 and  # >500KB
+                            req.get('startTime', 0) < 1000]
+    if large_early_images:
+        opportunities.append(f"Large images loading early ({len(large_early_images)} images >500KB)")
+    
+    # Check for lack of resource prioritization
+    if abs(critical_load_time - important_load_time) < 500:  # Loading at similar times
+        opportunities.append("Resources not properly prioritized - critical and non-critical loading simultaneously")
+    
+    return {
+        "critical_resources": {
+            "count": len(critical_resources),
+            "total_size_kb": total_critical_size / 1024 if total_critical_size else 0,
+            "load_time_ms": critical_load_time,
+            "resources": [{"url": req['url'], "type": req.get('resourceType'), 
+                          "size_kb": req.get('size', 0)/1024, "time_ms": req.get('time', 0)} 
+                         for req in critical_resources[:5]]  # Top 5
+        },
+        "important_resources": {
+            "count": len(important_resources),
+            "total_size_kb": total_important_size / 1024 if total_important_size else 0,
+            "load_time_ms": important_load_time
+        },
+        "deferred_resources": {
+            "count": len(deferred_resources),
+            "total_size_kb": total_deferred_size / 1024 if total_deferred_size else 0
+        },
+        "loading_sequence": {
+            "critical_complete_time": critical_load_time,
+            "important_complete_time": important_load_time,
+            "priority_gap_ms": abs(important_load_time - critical_load_time),
+            "is_well_sequenced": abs(important_load_time - critical_load_time) > 500
+        },
+        "optimization_opportunities": opportunities,
+        "progressive_loading_score": {
+            "score": min(100, max(0, 100 - len(opportunities) * 15)),  # Deduct 15 points per issue
+            "rating": "good" if len(opportunities) <= 1 else "needs_improvement" if len(opportunities) <= 3 else "poor"
+        }
+    }
+
+
+def calculate_resource_impact_scores(blocking_resources: list) -> list:
+    """Calculate impact scores for blocking resources to prioritize optimization.
+    
+    Returns:
+        List of resources with impact scores (0-100, higher = more impact)
+    """
+    scored_resources = []
+    
+    for resource in blocking_resources:
+        score = 0
+        size = resource.get('size', 0)
+        time = resource.get('time', 0)
+        resource_type = resource.get('type', '')
+        
+        # Size impact (0-30 points)
+        if size > 200000:      # >200KB
+            score += 30
+        elif size > 100000:    # >100KB
+            score += 20
+        elif size > 50000:     # >50KB
+            score += 10
+        
+        # Time impact (0-40 points)
+        if time > 3000:        # >3s
+            score += 40
+        elif time > 2000:      # >2s
+            score += 30
+        elif time > 1000:      # >1s
+            score += 20
+        elif time > 500:       # >500ms
+            score += 10
+        
+        # Type impact (0-20 points)
+        if resource_type == 'script':
+            score += 20  # JavaScript blocks parsing and rendering
+        elif resource_type == 'stylesheet':
+            score += 15  # CSS blocks rendering
+        
+        # URL-based optimization potential (0-10 points)
+        url = resource.get('url', '').lower()
+        if any(keyword in url for keyword in ['analytics', 'tracking', 'ads']):
+            score += 10  # High optimization potential
+        elif any(keyword in url for keyword in ['vendor', 'library', 'framework']):
+            score += 5   # Medium optimization potential
+        
+        scored_resources.append({
+            **resource,
+            'impact_score': min(score, 100),  # Cap at 100
+            'priority': 'high' if score >= 70 else 'medium' if score >= 40 else 'low'
+        })
+    
+    # Sort by impact score (highest first)
+    return sorted(scored_resources, key=lambda x: x['impact_score'], reverse=True)
 
 
 def generate_agent_summary(summary, header, enhanced_analysis=None):

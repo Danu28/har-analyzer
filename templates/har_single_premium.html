@@ -523,6 +523,50 @@
             letter-spacing: 0.5px;
         }
 
+        /* Impact Score Styling */
+        .impact-score {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-align: center;
+            color: white;
+        }
+
+        .impact-score.high {
+            background: var(--danger-color);
+        }
+
+        .impact-score.medium {
+            background: var(--warning-color);
+        }
+
+        .impact-score.low {
+            background: var(--success-color);
+        }
+
+        /* Resource Detail Styling */
+        .resource-detail {
+            background: var(--gray-50);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .resource-detail strong {
+            color: var(--primary-color);
+        }
+
+        .resource-detail a {
+            color: var(--info-color);
+            text-decoration: none;
+        }
+
+        .resource-detail a:hover {
+            text-decoration: underline;
+        }
+
         /* Priority Actions */
         .priority-actions {
             background: linear-gradient(135deg, #fee2e2 0%, #fed7d7 100%);
@@ -1051,6 +1095,235 @@
                     {% endif %}
                     <br><small>Ensure the HAR file contains the main HTML document with content.</small>
                 </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Core Web Vitals Analysis -->
+        {% if critical_path_analysis and critical_path_analysis.core_web_vitals %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">⚡ Core Web Vitals</h2>
+                    <p class="section-subtitle">Google's Core Web Vitals performance metrics</p>
+                </div>
+                <div class="section-badge">
+                    {% if critical_path_analysis.core_web_vitals.overall_rating.poor > 0 %}Poor
+                    {% elif critical_path_analysis.core_web_vitals.overall_rating.needs_improvement > 0 %}Needs Improvement
+                    {% else %}Good{% endif %}
+                </div>
+            </div>
+
+            <!-- Core Web Vitals Metrics -->
+            <div class="metrics-grid">
+                <!-- Largest Contentful Paint -->
+                <div class="metric-card 
+                    {% if critical_path_analysis.core_web_vitals.largest_contentful_paint.rating == 'good' %}success
+                    {% elif critical_path_analysis.core_web_vitals.largest_contentful_paint.rating == 'needs_improvement' %}warning
+                    {% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.core_web_vitals.largest_contentful_paint.time_formatted }}</div>
+                    <div class="metric-label">Largest Contentful Paint (LCP)</div>
+                    <div class="metric-sublabel">Target: {{ critical_path_analysis.core_web_vitals.largest_contentful_paint.target }}</div>
+                </div>
+
+                <!-- First Input Delay -->
+                <div class="metric-card 
+                    {% if critical_path_analysis.core_web_vitals.first_input_delay.rating == 'good' %}success
+                    {% elif critical_path_analysis.core_web_vitals.first_input_delay.rating == 'needs_improvement' %}warning
+                    {% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.core_web_vitals.first_input_delay.time_formatted }}</div>
+                    <div class="metric-label">First Input Delay (FID)</div>
+                    <div class="metric-sublabel">Target: {{ critical_path_analysis.core_web_vitals.first_input_delay.target }}
+                        {% if critical_path_analysis.core_web_vitals.first_input_delay.estimated %} (est.){% endif %}</div>
+                </div>
+
+                <!-- Cumulative Layout Shift -->
+                <div class="metric-card 
+                    {% if critical_path_analysis.core_web_vitals.cumulative_layout_shift.rating == 'good' %}success
+                    {% elif critical_path_analysis.core_web_vitals.cumulative_layout_shift.rating == 'needs_improvement' %}warning
+                    {% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.core_web_vitals.cumulative_layout_shift.score }}</div>
+                    <div class="metric-label">Cumulative Layout Shift (CLS)</div>
+                    <div class="metric-sublabel">Target: {{ critical_path_analysis.core_web_vitals.cumulative_layout_shift.target }}
+                        {% if critical_path_analysis.core_web_vitals.cumulative_layout_shift.estimated %} (est.){% endif %}</div>
+                </div>
+            </div>
+
+            <!-- LCP Candidate Resource -->
+            {% if critical_path_analysis.core_web_vitals.largest_contentful_paint.candidate_resource %}
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('lcp-candidate')">
+                    <h4>🎯 LCP Candidate Resource</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="lcp-candidate">
+                    <div class="resource-detail">
+                        <strong>{{ critical_path_analysis.core_web_vitals.largest_contentful_paint.candidate_resource.type|title }}:</strong>
+                        <a href="{{ critical_path_analysis.core_web_vitals.largest_contentful_paint.candidate_resource.url }}" target="_blank">
+                            {{ critical_path_analysis.core_web_vitals.largest_contentful_paint.candidate_resource.url|truncate(80) }}
+                        </a>
+                        <br>
+                        <small>Size: {{ (critical_path_analysis.core_web_vitals.largest_contentful_paint.candidate_resource.size / 1024)|round(1) }} KB | 
+                        Load Time: {{ critical_path_analysis.core_web_vitals.largest_contentful_paint.candidate_resource.time|round }} ms</small>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Progressive Loading Analysis -->
+        {% if critical_path_analysis and critical_path_analysis.progressive_loading %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">📈 Progressive Loading Analysis</h2>
+                    <p class="section-subtitle">Resource prioritization and loading sequence optimization</p>
+                </div>
+                <div class="section-badge">
+                    Score: {{ critical_path_analysis.progressive_loading.progressive_loading_score.score }}/100
+                    ({{ critical_path_analysis.progressive_loading.progressive_loading_score.rating|title }})
+                </div>
+            </div>
+
+            <!-- Progressive Loading Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-card {% if critical_path_analysis.progressive_loading.critical_resources.count < 10 %}success{% elif critical_path_analysis.progressive_loading.critical_resources.count < 20 %}warning{% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.progressive_loading.critical_resources.count }}</div>
+                    <div class="metric-label">Critical Resources</div>
+                    <div class="metric-sublabel">{{ (critical_path_analysis.progressive_loading.critical_resources.total_size_kb / 1024)|round(1) }} MB</div>
+                </div>
+
+                <div class="metric-card warning">
+                    <div class="metric-value">{{ critical_path_analysis.progressive_loading.important_resources.count }}</div>
+                    <div class="metric-label">Important Resources</div>
+                    <div class="metric-sublabel">{{ (critical_path_analysis.progressive_loading.important_resources.total_size_kb / 1024)|round(1) }} MB</div>
+                </div>
+
+                <div class="metric-card success">
+                    <div class="metric-value">{{ critical_path_analysis.progressive_loading.deferred_resources.count }}</div>
+                    <div class="metric-label">Deferred Resources</div>
+                    <div class="metric-sublabel">{{ (critical_path_analysis.progressive_loading.deferred_resources.total_size_kb / 1024)|round(1) }} MB</div>
+                </div>
+
+                <div class="metric-card {% if critical_path_analysis.progressive_loading.progressive_loading_score.score >= 80 %}success{% elif critical_path_analysis.progressive_loading.progressive_loading_score.score >= 60 %}warning{% else %}danger{% endif %}">
+                    <div class="metric-value">{{ critical_path_analysis.progressive_loading.progressive_loading_score.score }}/100</div>
+                    <div class="metric-label">Loading Score</div>
+                    <div class="metric-sublabel">{{ critical_path_analysis.progressive_loading.progressive_loading_score.rating|title }}</div>
+                </div>
+            </div>
+
+            <!-- Progressive Loading Opportunities -->
+            {% if critical_path_analysis.progressive_loading.optimization_opportunities %}
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('progressive-opportunities')">
+                    <h4>🎯 Optimization Opportunities</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="progressive-opportunities">
+                    <ul>
+                        {% for opportunity in critical_path_analysis.progressive_loading.optimization_opportunities %}
+                        <li>{{ opportunity }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Critical Resources Detail -->
+            {% if critical_path_analysis.progressive_loading.critical_resources.resources %}
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('critical-resources-detail')">
+                    <h4>⚡ Critical Resources (Top 5)</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="critical-resources-detail">
+                    <div class="table-container">
+                        <table class="enhanced-table">
+                            <thead>
+                                <tr>
+                                    <th>Resource</th>
+                                    <th>Type</th>
+                                    <th>Size</th>
+                                    <th>Load Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for resource in critical_path_analysis.progressive_loading.critical_resources.resources[:5] %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ resource.url }}" target="_blank">
+                                            {{ resource.url|truncate(50) }}
+                                        </a>
+                                    </td>
+                                    <td>{{ resource.type|title }}</td>
+                                    <td>{{ resource.size_kb|round(1) }} KB</td>
+                                    <td>{{ resource.time_ms|round }} ms</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- High-Impact Resource Optimization -->
+        {% if critical_path_analysis and critical_path_analysis.impact_scored_resources %}
+        <div class="section fade-in">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">🎯 High-Impact Optimization Targets</h2>
+                    <p class="section-subtitle">Resources with the highest performance optimization potential</p>
+                </div>
+                <div class="section-badge">{{ critical_path_analysis.impact_scored_resources|length }} Resources</div>
+            </div>
+
+            <div class="table-container">
+                <table class="enhanced-table">
+                    <thead>
+                        <tr>
+                            <th>Resource</th>
+                            <th>Type</th>
+                            <th>Size</th>
+                            <th>Load Time</th>
+                            <th>Impact Score</th>
+                            <th>Priority</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for resource in critical_path_analysis.impact_scored_resources %}
+                        <tr>
+                            <td>
+                                <a href="{{ resource.url }}" target="_blank">
+                                    {{ resource.url|truncate(50) }}
+                                </a>
+                            </td>
+                            <td>{{ resource.type|title }}</td>
+                            <td>
+                                {% if resource.size > 0 %}
+                                    {{ (resource.size / 1024)|round(1) }} KB
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>{{ resource.time|round }} ms</td>
+                            <td>
+                                <div class="impact-score {% if resource.impact_score >= 70 %}high{% elif resource.impact_score >= 40 %}medium{% else %}low{% endif %}">
+                                    {{ resource.impact_score }}/100
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-badge status-{% if resource.priority == 'high' %}4xx{% elif resource.priority == 'medium' %}3xx{% else %}2xx{% endif %}">
+                                    {{ resource.priority|title }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
         {% endif %}
