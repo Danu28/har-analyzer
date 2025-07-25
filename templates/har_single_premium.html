@@ -1463,10 +1463,10 @@
         <div class="section fade-in">
             <div class="section-header">
                 <div>
-                    <h2 class="section-title">📏 Largest Assets</h2>
-                    <p class="section-subtitle">Resources with the highest impact on load time</p>
+                    <h2 class="section-title">📏 High-Impact Assets</h2>
+                    <p class="section-subtitle">Resources with Critical or High impact on load time (>1MB)</p>
                 </div>
-                <div class="section-badge">Top {{ largest_assets|length }} Assets</div>
+                <div class="section-badge">High-Impact Assets</div>
             </div>
             
             <div class="table-container">
@@ -1482,6 +1482,7 @@
                     </thead>
                     <tbody>
                         {% for asset in largest_assets %}
+                        {% if asset.size_kb and asset.size_kb|float > 1000 %}
                         <tr>
                             <td class="url-cell" title="{{ asset.url }}">{{ asset.url|truncate(50) }}</td>
                             <td>
@@ -1513,7 +1514,7 @@
                                 {% elif asset.size_kb and asset.size_kb|float > 1000 %}
                                 <span class="status-badge status-3xx">High</span>
                                 {% else %}
-                                <span class="status-badge status-2xx">Normal</span>
+                                <span class="status-badge status-2xx">Impact</span>
                                 {% endif %}
                             </td>
                             <td>
@@ -1526,6 +1527,7 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -1538,10 +1540,10 @@
         <div class="section fade-in">
             <div class="section-header">
                 <div>
-                    <h2 class="section-title">🐌 Slowest Requests</h2>
-                    <p class="section-subtitle">Requests with the highest response times</p>
+                    <h2 class="section-title">🐌 High-Impact Slow Requests</h2>
+                    <p class="section-subtitle">Requests with Critical or High response time impact (>3s)</p>
                 </div>
-                <div class="section-badge">{{ slowest_requests|length }} Slow Requests</div>
+                <div class="section-badge">High-Impact Requests</div>
             </div>
             
             <div class="table-container">
@@ -1557,6 +1559,7 @@
                     </thead>
                     <tbody>
                         {% for request in slowest_requests %}
+                        {% if request.time_ms and request.time_ms|int > 3000 %}
                         <tr>
                             <td class="url-cell" title="{{ request.url }}">{{ request.url|truncate(50) }}</td>
                             <td>
@@ -1610,6 +1613,7 @@
                                 {% endif %}
                             </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
