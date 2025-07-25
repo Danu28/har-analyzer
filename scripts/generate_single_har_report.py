@@ -78,14 +78,21 @@ def generate_single_har_report(
     # Render template with data
     try:
         from jinja2 import DebugUndefined, Template
+        print("DEBUG: Jinja2 imported successfully")
 
         template = Template(template_content, undefined=DebugUndefined)
+        print("DEBUG: Template compiled successfully")
+        
         html_content = template.render(**processed_data)
+        print("DEBUG: Template rendered successfully - using Jinja2")
     except ImportError:
         print("WARNING: Jinja2 not found, using simple template replacement")
         html_content = _render_simple_template(template_content, processed_data)
     except Exception as e:
         print(f"WARNING: Jinja2 template error: {e}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        traceback.print_exc()
         print("   Falling back to simple template replacement")
         html_content = _render_simple_template(template_content, processed_data)
 

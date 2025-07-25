@@ -1697,14 +1697,14 @@
         {% endif %}
 
         <!-- Failed Requests -->
-        {% if failed_requests %}
+        
         <div class="section fade-in">
             <div class="section-header">
                 <div>
                     <h2 class="section-title">❌ Failed Requests</h2>
                     <p class="section-subtitle">Requests that failed to load successfully</p>
                 </div>
-                <div class="section-badge">{{ failed_requests_count }} Failures</div>
+                <div class="section-badge">{{ failed_requests|length if failed_requests else 0 }} Failures</div>
             </div>
             
             <div class="table-container">
@@ -1719,24 +1719,17 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% if failed_requests %}
                         {% for request in failed_requests %}
                         <tr>
                             <td class="url-cell" title="{{ request.url }}">{{ request.url|truncate(50) }}</td>
                             <td>
-                                <span class="status-badge status-{{ request.status|string|slice(0,1) }}xx">
+                                <span class="status-badge status-{% if request.status >= 500 %}5xx{% elif request.status >= 400 %}4xx{% elif request.status >= 300 %}3xx{% else %}2xx{% endif %}">
                                     {{ request.status }}
                                 </span>
                             </td>
                             <td>
-                                {% if request.status == 403 %}
-                                Access Denied
-                                {% elif request.status == 404 %}
-                                Not Found
-                                {% elif request.status == 500 %}
-                                Server Error
-                                {% else %}
-                                Network Error
-                                {% endif %}
+                                {{ request.error_type if request.error_type else "Unknown Error" }}
                             </td>
                             <td>
                                 {% if request.status and request.status|int >= 500 %}
@@ -1748,23 +1741,21 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if request.status == 403 %}
-                                Check API permissions
-                                {% elif request.status == 404 %}
-                                Verify URL or remove reference
-                                {% elif request.status == 500 %}
-                                Contact service provider
-                                {% else %}
-                                Investigate network issues
-                                {% endif %}
+                                {{ request.resolution if request.resolution else "Investigate network issues" }}
                             </td>
                         </tr>
                         {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 20px; color: var(--gray-500);">
+                                No failed requests detected
+                            </td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
-        {% endif %}
 
 
         <!-- Performance Recommendations Summary -->
