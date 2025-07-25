@@ -1673,7 +1673,7 @@
             <div class="section-header">
                 <div>
                     <h2 class="section-title">🔄 Caching Optimization</h2>
-                    <p class="section-subtitle">Resources with caching optimization opportunities</p>
+                    <p class="section-subtitle">High-impact caching opportunities for resources >50KB with missing cache headers</p>
                 </div>
                 <div class="section-badge">{{ no_cache_count }} Opportunities</div>
             </div>
@@ -1704,7 +1704,7 @@
             {% if no_cache_resources %}
             <div class="expandable-section">
                 <div class="expand-toggle" onclick="toggleExpand('no-cache')">
-                    <h4>❌ Resources without cache headers</h4>
+                    <h4>❌ High-Impact Caching Opportunities (>50KB resources)</h4>
                     <span class="expand-icon">▼</span>
                 </div>
                 <div class="expand-content" id="no-cache">
@@ -1715,19 +1715,44 @@
                                     <th>Resource</th>
                                     <th>Type</th>
                                     <th>Size</th>
+                                    <th>Impact Level</th>
+                                    <th>Potential Savings</th>
                                     <th>Recommended Cache</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for resource in no_cache_resources %}
+                                {% if resource.size_kb and resource.size_kb|float > 50 %}
                                 <tr>
                                     <td class="url-cell" title="{{ resource.url }}">{{ resource.url|truncate(50) }}</td>
                                     <td><span class="status-badge status-2xx">{{ resource.type|title }}</span></td>
                                     <td>{{ resource.size_kb|round(1) }} KB</td>
                                     <td>
+                                        {% if resource.size_kb and resource.size_kb|float > 500 %}
+                                        <span class="status-badge status-4xx">Critical</span>
+                                        {% elif resource.size_kb and resource.size_kb|float > 200 %}
+                                        <span class="status-badge status-3xx">High</span>
+                                        {% else %}
+                                        <span class="status-badge status-warning">Medium</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if resource.size_kb and resource.size_kb|float > 500 %}
+                                        {{ (resource.size_kb * 0.8)|round(1) }} KB/visit
+                                        {% elif resource.size_kb and resource.size_kb|float > 200 %}
+                                        {{ (resource.size_kb * 0.7)|round(1) }} KB/visit
+                                        {% else %}
+                                        {{ (resource.size_kb * 0.6)|round(1) }} KB/visit
+                                        {% endif %}
+                                    </td>
+                                    <td>
                                         {% if resource.type == 'image' %}
                                         max-age=31536000 (1 year)
                                         {% elif resource.type == 'script' %}
+                                        max-age=31536000 (1 year)
+                                        {% elif resource.type == 'stylesheet' %}
+                                        max-age=31536000 (1 year)
+                                        {% elif resource.type == 'font' %}
                                         max-age=31536000 (1 year)
                                         {% elif resource.type == 'document' %}
                                         max-age=3600 (1 hour)
@@ -1736,6 +1761,7 @@
                                         {% endif %}
                                     </td>
                                 </tr>
+                                {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -1746,13 +1772,13 @@
         </div>
         {% endif %}
 
-        <!-- Failed Requests -->
+        <!-- High-Impact Failed Requests -->
         
         <div class="section fade-in">
             <div class="section-header">
                 <div>
-                    <h2 class="section-title">❌ Failed Requests</h2>
-                    <p class="section-subtitle">Requests that failed to load successfully</p>
+                    <h2 class="section-title">❌ High-Impact Failed Requests</h2>
+                    <p class="section-subtitle">Critical and high-impact request failures (5xx server errors, 4xx client errors for essential resources)</p>
                 </div>
                 <div class="section-badge">{{ failed_requests|length if failed_requests else 0 }} Failures</div>
             </div>
@@ -1764,13 +1790,18 @@
                             <th>Request</th>
                             <th>Status Code</th>
                             <th>Error Type</th>
-                            <th>Impact</th>
-                            <th>Resolution</th>
+                            <th>Resource Type</th>
+                            <th>Impact Level</th>
+                            <th>Business Impact</th>
+                            <th>Resolution Priority</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% if failed_requests %}
                         {% for request in failed_requests %}
+                        {% if (request.status and request.status|int >= 500) or 
+                              (request.status and request.status|int >= 400 and 
+                               ('.js' in request.url or '.css' in request.url or '.html' in request.url or 'api' in request.url or request.url.endswith('/') or 'main' in request.url or 'critical' in request.url)) %}
                         <tr>
                             <td class="url-cell" title="{{ request.url }}">{{ request.url|truncate(50) }}</td>
                             <td>
@@ -1782,7 +1813,26 @@
                                 {{ request.error_type if request.error_type else "Unknown Error" }}
                             </td>
                             <td>
+                                {% if '.js' in request.url %}
+                                <span class="status-badge status-3xx">JavaScript</span>
+                                {% elif '.css' in request.url %}
+                                <span class="status-badge status-info">Stylesheet</span>
+                                {% elif '.html' in request.url or request.url.endswith('/') %}
+                                <span class="status-badge status-4xx">Document</span>
+                                {% elif 'api' in request.url %}
+                                <span class="status-badge status-warning">API</span>
+                                {% elif '.png' in request.url or '.jpg' in request.url or '.jpeg' in request.url or '.gif' in request.url or '.webp' in request.url %}
+                                <span class="status-badge status-success">Image</span>
+                                {% elif '.woff' in request.url or '.ttf' in request.url or '.otf' in request.url %}
+                                <span class="status-badge status-warning">Font</span>
+                                {% else %}
+                                <span class="status-badge status-2xx">Resource</span>
+                                {% endif %}
+                            </td>
+                            <td>
                                 {% if request.status and request.status|int >= 500 %}
+                                <span class="status-badge status-4xx">Critical</span>
+                                {% elif request.status and request.status|int >= 400 and ('.js' in request.url or '.css' in request.url or '.html' in request.url or 'api' in request.url) %}
                                 <span class="status-badge status-4xx">Critical</span>
                                 {% elif request.status and request.status|int >= 400 %}
                                 <span class="status-badge status-3xx">High</span>
@@ -1791,14 +1841,38 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {{ request.resolution if request.resolution else "Investigate network issues" }}
+                                {% if request.status and request.status|int >= 500 %}
+                                Site functionality broken
+                                {% elif request.status and request.status|int == 404 and ('.js' in request.url or '.css' in request.url) %}
+                                Features/styling broken
+                                {% elif request.status and request.status|int == 404 and '.html' in request.url %}
+                                Page not accessible
+                                {% elif request.status and request.status|int == 403 %}
+                                Access denied issue
+                                {% elif 'api' in request.url %}
+                                Data/functionality loss
+                                {% else %}
+                                User experience degraded
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if request.status and request.status|int >= 500 %}
+                                <span class="status-badge status-4xx">Immediate</span>
+                                {% elif request.status and request.status|int >= 400 and ('.js' in request.url or '.css' in request.url or '.html' in request.url or 'api' in request.url) %}
+                                <span class="status-badge status-4xx">Immediate</span>
+                                {% elif request.status and request.status|int >= 400 %}
+                                <span class="status-badge status-3xx">High</span>
+                                {% else %}
+                                <span class="status-badge status-warning">Medium</span>
+                                {% endif %}
                             </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                         {% else %}
                         <tr>
-                            <td colspan="5" style="text-align: center; padding: 20px; color: var(--gray-500);">
-                                No failed requests detected
+                            <td colspan="7" style="text-align: center; padding: 20px; color: var(--gray-500);">
+                                No high-impact failed requests detected
                             </td>
                         </tr>
                         {% endif %}
