@@ -31,7 +31,12 @@ def print_info(msg):
 
 
 def print_ok(msg):
-    print(f"[OK] {msg}")
+    try:
+        print(f"[OK] {msg}")
+    except UnicodeEncodeError:
+        # Handle emoji encoding error by replacing emojis with text
+        msg = msg.replace("\u2705", "SUCCESS")
+        print(f"[OK] {msg}")
 
 
 def print_warn(msg):
@@ -79,6 +84,7 @@ def main(har_file=None, input_dir=None):
     )
     print(f"DEBUG: __name__ = {__name__}")
     import traceback
+    from pathlib import Path  # Import Path here to ensure it's available
 
     print("DEBUG: Call stack:")
     traceback.print_stack()
@@ -316,8 +322,9 @@ def main(har_file=None, input_dir=None):
     )
     dns_analysis = analyze_dns_connection_timing(reqs)
     # Handle N/A case for DNS/SSL timings
-    avg_dns = dns_analysis["avg_dns_time"]
-    avg_ssl = dns_analysis["avg_ssl_time"]
+    details = dns_analysis.get("details", {})
+    avg_dns = details.get("avg_dns_time", "N/A")
+    avg_ssl = details.get("avg_ssl_time", "N/A")
     if avg_dns == "N/A":
         print_warn("Average DNS time: N/A (no valid timing data)")
     elif avg_dns > 50:
@@ -332,7 +339,8 @@ def main(har_file=None, input_dir=None):
         print_ok(f"Average SSL time: {avg_ssl}ms")
 
     print("Top domains by performance impact:")
-    for domain_stat in dns_analysis["domain_performance"][:5]:
+    domain_performance = details.get("domain_performance", [])
+    for domain_stat in domain_performance[:5]:
         print(
             f"  - {domain_stat['domain'][:40]} ({domain_stat['requests']} req, {domain_stat['total_time_ms']}ms total)"
         )
@@ -594,14 +602,51 @@ def main(har_file=None, input_dir=None):
             "critical_path": critical_path_analysis,
         },
     )
-    print(json.dumps(agent_summary, indent=2))
+    
+    # Try to import and use schema validation
+    schema_validated = False
+    try:
+        import sys
+        from pathlib import Path
+        
+        # Add parent directory to path to import utils
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        from utils.schema_validation import validate_against_schema
+        
+        # Validate agent summary against schema
+        validation_result = validate_against_schema(agent_summary)
+        
+        if validation_result["valid"] == True:
+            print_ok("Agent summary validated against schema successfully")
+            schema_validated = True
+        elif validation_result["valid"] is None:
+            print_warn("Schema validation skipped: jsonschema package not installed")
+        else:
+            print_warn("Agent summary failed schema validation")
+            for error in validation_result["errors"]:
+                print_warn(f"  - {error}")
+                
+    except ImportError as e:
+        print_warn(f"Could not import schema validation utilities: {e}")
+        print_warn("Schema validation skipped")
+    except Exception as e:
+        print_warn(f"Error during schema validation: {e}")
+        print_warn("Schema validation skipped")
+
+    # Print a truncated version of the summary for debugging
+    print(json.dumps({k: agent_summary[k] for k in list(agent_summary.keys())[:5]}, indent=2))
+    print("... (truncated for readability) ...")
 
     # Save agent summary to file
     with open(
         os.path.join(input_dir, "agent_summary.json"), "w", encoding="utf-8"
     ) as f:
         json.dump(agent_summary, f, indent=2)
-    print_ok("Agent summary saved to agent_summary.json")
+    
+    if schema_validated:
+        print_ok("✅ Agent summary saved to agent_summary.json (schema validated)")
+    else:
+        print_ok("⚠️ Agent summary saved to agent_summary.json (schema validation skipped)")
 
 
 def analyze_critical_path(har_data: dict, reqs: list) -> dict:
@@ -1220,19 +1265,27 @@ def calculate_resource_impact_scores(blocking_resources: list) -> list:
 
 def generate_agent_summary(summary, header, enhanced_analysis=None):
     """Generate a comprehensive summary for AI agent consumption"""
+    from datetime import datetime
+    import os
+    
     try:
         reqs = summary["requests"]
         total_entries = summary.get("totalEntries", 0)
         page = header["log"]["pages"][0]
+        har_name = os.path.basename(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         
         # Safely extract timing data with null checks
         page_timings = page.get("pageTimings", {})
         on_content_load = page_timings.get("onContentLoad")
         on_load = page_timings.get("onLoad")
         
-        # Convert to seconds with null safety
-        dom_ready = round(on_content_load / 1000, 2) if on_content_load is not None else None
-        page_load = round(on_load / 1000, 2) if on_load is not None else None
+        # Store raw millisecond values
+        dom_ready_ms = on_content_load
+        page_load_ms = on_load
+        
+        # Convert to seconds with null safety (for formatted display)
+        dom_ready_sec = round(on_content_load / 1000, 2) if on_content_load is not None else None
+        page_load_sec = round(on_load / 1000, 2) if on_load is not None else None
 
         # Performance categorization
         very_slow = [r for r in reqs if r["time"] >= 1000]
@@ -1246,26 +1299,77 @@ def generate_agent_summary(summary, header, enhanced_analysis=None):
         for r in reqs:
             breakdown[r["resourceType"]].append(r)
 
-        # Top largest assets
-        largest = sorted([r for r in reqs if r["size"] > 0], key=lambda x: -x["size"])[
-            :5
-        ]
+        # Top largest assets with more detailed information
+        largest = sorted([r for r in reqs if r["size"] > 0], key=lambda x: -x["size"])[:10]
+        largest_assets = []
+        for r in largest:
+            largest_assets.append({
+                "url": r["url"],
+                "url_truncated": r["url"][:80],
+                "size_bytes": r["size"],
+                "size_kb": round(r["size"] / 1024, 1),
+                "time_ms": round(r["time"]),
+                "resource_type": r["resourceType"],
+                "status_code": r["status"]
+            })
 
-        # Top slowest requests
+        # Top slowest requests with more detailed information
         slowest = sorted(reqs, key=lambda x: -x["time"])[:5]
+        slowest_requests = []
+        for r in slowest:
+            slowest_requests.append({
+                "url": r["url"],
+                "url_truncated": r["url"][:80],
+                "size_bytes": r.get("size", 0),
+                "size_kb": round(r.get("size", 0) / 1024, 1),
+                "time_ms": round(r["time"]),
+                "resource_type": r["resourceType"],
+                "status_code": r["status"]
+            })
+
+        # Calculate performance classes for UI styling
+        performance_classes = {
+            "load_time_class": (
+                "danger" if page_load_sec is not None and page_load_sec > 5 
+                else "warning" if page_load_sec is not None and page_load_sec > 3 
+                else "success"
+            ),
+            "dom_time_class": (
+                "danger" if dom_ready_sec is not None and dom_ready_sec > 2 
+                else "warning" if dom_ready_sec is not None and dom_ready_sec > 1 
+                else "success"
+            ),
+            "requests_class": (
+                "danger" if total_entries > 100 
+                else "warning" if total_entries > 50 
+                else "success"
+            ),
+            "failed_class": (
+                "danger" if len(failed) > 5 
+                else "warning" if len(failed) > 0 
+                else "success"
+            )
+        }
 
         base_summary = {
+            "metadata": {
+                "har_name": har_name,
+                "analysis_timestamp": datetime.now().isoformat(),
+                "schema_version": "1.0.0"
+            },
             "performance_summary": {
                 "total_requests": total_entries,
-                "dom_ready_time": f"{dom_ready}s" if dom_ready is not None else "Not available",
-                "page_load_time": f"{page_load}s" if page_load is not None else "Not available",
+                "dom_ready_time_ms": int(dom_ready_ms) if dom_ready_ms is not None else None,
+                "page_load_time_ms": int(page_load_ms) if page_load_ms is not None else None,
+                "dom_ready_time_formatted": f"{dom_ready_sec}s" if dom_ready_sec is not None else "Not available",
+                "page_load_time_formatted": f"{page_load_sec}s" if page_load_sec is not None else "Not available",
                 "performance_grade": (
                     "CRITICAL"
-                    if page_load is not None and page_load > 10
+                    if page_load_sec is not None and page_load_sec > 10
                     else (
-                        "POOR" if page_load is not None and page_load > 5 
-                        else "FAIR" if page_load is not None and page_load > 3 
-                        else "GOOD" if page_load is not None
+                        "POOR" if page_load_sec is not None and page_load_sec > 5 
+                        else "FAIR" if page_load_sec is not None and page_load_sec > 3 
+                        else "GOOD" if page_load_sec is not None
                         else "UNKNOWN"
                     )
                 ),
@@ -1273,39 +1377,110 @@ def generate_agent_summary(summary, header, enhanced_analysis=None):
             "critical_issues": {
                 "very_slow_requests": len(very_slow),
                 "slow_requests": len(slow),
-                "failed_requests": len(failed),
+                "failed_requests_count": len(failed),
                 "excessive_requests": total_entries > 100,
             },
+            "performance_classes": performance_classes,
             "resource_breakdown": {
                 rtype: len(resources) for rtype, resources in breakdown.items()
             },
-            "largest_assets": [
-                {"url": r["url"][:80], "size_kb": round(r["size"] / 1024, 1)}
-                for r in largest
-            ],
-            "slowest_requests": [
-                {"url": r["url"][:80], "time_ms": round(r["time"])} for r in slowest
-            ],
+            "largest_assets": largest_assets,
+            "slowest_requests": slowest_requests,
             "failed_requests": [
-                {"url": r["url"], "status": r["status"]} for r in failed
+                {
+                    "url": r["url"],
+                    "status": r["status"],
+                    "error_type": (
+                        "Access Denied" if r["status"] == 403 else
+                        "Not Found" if r["status"] == 404 else
+                        "Server Error" if r["status"] == 500 else
+                        "Network Error"
+                    ),
+                    "resolution": (
+                        "Check API permissions" if r["status"] == 403 else
+                        "Verify URL or remove reference" if r["status"] == 404 else
+                        "Contact service provider" if r["status"] == 500 else
+                        "Investigate network issues"
+                    )
+                } for r in failed
             ],
         }
 
+        # Calculate total size in MB for summary
+        total_size_bytes = sum(r.get("size", 0) for r in reqs)
+        total_size_mb = round(total_size_bytes / (1024 * 1024), 2)
+        
+        # Calculate average response time
+        valid_times = [r["time"] for r in reqs if r["time"] > 0]
+        avg_response_time = round(sum(valid_times) / len(valid_times), 1) if valid_times else 0
+        
+        # Add common summary fields
+        base_summary.update({
+            "total_size_mb": total_size_mb,
+            "avg_response_time": avg_response_time
+        })
+        
+        # Generate recommendations based on analysis
+        recommendations = []
+        if len(very_slow) > 5:
+            recommendations.append(f"Optimize the {len(very_slow)} requests taking >1000ms")
+        if total_entries > 50:
+            recommendations.append(f"Reduce the number of requests ({total_entries}) through bundling and combining resources")
+        if len(failed) > 0:
+            recommendations.append(f"Fix {len(failed)} failed requests to prevent wasted resources")
+            
+        base_summary["recommendations"] = recommendations
+        
         # Add enhanced analysis if provided
         if enhanced_analysis:
-            base_summary.update(
-                {
-                    "compression_analysis": enhanced_analysis.get("compression", {}),
-                    "caching_analysis": enhanced_analysis.get("caching", {}),
-                    "dns_connection_analysis": enhanced_analysis.get(
-                        "dns_connection", {}
-                    ),
-                    "enhanced_third_party_analysis": enhanced_analysis.get(
-                        "enhanced_third_party", {}
-                    ),
-                    "critical_path_analysis": enhanced_analysis.get("critical_path", {}),
+            # Handle compression analysis
+            compression = enhanced_analysis.get("compression", {})
+            if compression:
+                base_summary["compression_analysis"] = {
+                    "details": compression
                 }
-            )
+            
+            # Handle caching analysis
+            caching = enhanced_analysis.get("caching", {})
+            if caching:
+                base_summary["caching_analysis"] = {
+                    "details": caching
+                }
+            
+            # Handle DNS connection analysis - ensure it follows the schema
+            dns_connection = enhanced_analysis.get("dns_connection", {})
+            if dns_connection:
+                # DNS connection analysis is already structured correctly in our updated function
+                base_summary["dns_connection_analysis"] = dns_connection
+            
+            # Handle third party analysis
+            third_party = enhanced_analysis.get("enhanced_third_party", {})
+            if third_party:
+                # Include the full third-party analysis
+                base_summary["enhanced_third_party_analysis"] = {
+                    "details": third_party
+                }
+                
+                # Extract blocking third parties for easier access in the template
+                blocking_third_parties = third_party.get("blocking_third_parties", [])
+                if blocking_third_parties:
+                    base_summary["blocking_third_parties"] = blocking_third_parties
+                    base_summary["blocking_resources_count"] = len(blocking_third_parties)
+            
+            # Handle critical path analysis
+            critical_path = enhanced_analysis.get("critical_path", {})
+            if critical_path:
+                base_summary["critical_path_analysis"] = critical_path
+                
+                # Extract Core Web Vitals directly for easier access in the template
+                core_web_vitals = critical_path.get("core_web_vitals", {})
+                if core_web_vitals:
+                    base_summary["core_web_vitals"] = core_web_vitals
+                
+                # Extract Progressive Loading data directly for easier access in the template
+                progressive_loading = critical_path.get("progressive_loading", {})
+                if progressive_loading:
+                    base_summary["progressive_loading_analysis"] = progressive_loading
 
         return base_summary
 
@@ -1566,30 +1741,51 @@ def analyze_dns_connection_timing(requests):
     # Find slow DNS resolutions (>100ms)
     slow_dns = [item for item in dns_times if item["dns_time"] > 100]
     slow_ssl = [item for item in ssl_times if item["ssl_time"] > 500]
+    
+    # Handle avg_dns_time which might be N/A
+    if dns_times:
+        avg_dns_time = round(sum(item["dns_time"] for item in dns_times) / len(dns_times), 1)
+    else:
+        avg_dns_time = "N/A"
+        
+    # Handle avg_ssl_time which might be N/A
+    if ssl_times:
+        avg_ssl_time = round(sum(item["ssl_time"] for item in ssl_times) / len(ssl_times), 1)
+    else:
+        avg_ssl_time = "N/A"
 
-    return {
-        "domain_performance": domain_stats[:10],  # Top 10 domains by impact
-        "slow_dns_resolutions": sorted(
-            slow_dns, key=lambda x: x["dns_time"], reverse=True
-        )[:5],
-        "slow_ssl_handshakes": sorted(
-            slow_ssl, key=lambda x: x["ssl_time"], reverse=True
-        )[:5],
-        "avg_dns_time": (
-            round(sum(item["dns_time"] for item in dns_times) / len(dns_times), 1)
-            if dns_times
-            else "N/A"
-        ),
-        "avg_ssl_time": (
-            round(sum(item["ssl_time"] for item in ssl_times) / len(ssl_times), 1)
-            if ssl_times
-            else "N/A"
-        ),
-        "connection_reuse_percentage": connection_reuse_percentage,
-        "reused_connections": reused_connections,
-        "new_connections": new_connections,
-        "total_connection_requests": total_connection_data,
+    # Create a structured object for DNS connection analysis that matches our schema
+    # Reformat domain_stats to match the schema
+    standardized_domain_stats = []
+    for domain in domain_stats[:10]:  # Top 10 domains by impact
+        standardized_domain_stats.append({
+            "domain": domain["domain"],
+            "requests": domain["requests"],
+            "avg_dns_time_ms": domain["avg_dns_ms"],
+            "avg_connect_time_ms": domain["avg_connect_ms"],
+            "avg_wait_time_ms": domain["total_time_ms"] / domain["requests"] if domain["requests"] > 0 else 0
+        })
+    
+    result = {
+        "details": {
+            # Ensure these are actual arrays, not string representations of arrays
+            "domains": standardized_domain_stats,
+            "slow_dns_resolutions": sorted(
+                slow_dns, key=lambda x: x["dns_time"], reverse=True
+            )[:5],
+            "slow_ssl_handshakes": sorted(
+                slow_ssl, key=lambda x: x["ssl_time"], reverse=True
+            )[:5],
+            "avg_dns_time": avg_dns_time,
+            "avg_ssl_time": avg_ssl_time,
+            "connection_reuse_percentage": connection_reuse_percentage,
+            "reused_connections": reused_connections,
+            "new_connections": new_connections,
+            "total_connection_requests": total_connection_data
+        }
     }
+    
+    return result
 
 
 def analyze_enhanced_third_party(requests):

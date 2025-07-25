@@ -1206,6 +1206,7 @@
                     <div class="metric-sublabel">{{ (critical_path_analysis.progressive_loading.deferred_resources.total_size_kb / 1024)|round(1) }} MB</div>
                 </div>
 
+
                 <div class="metric-card {% if critical_path_analysis.progressive_loading.progressive_loading_score.score >= 80 %}success{% elif critical_path_analysis.progressive_loading.progressive_loading_score.score >= 60 %}warning{% else %}danger{% endif %}">
                     <div class="metric-value">{{ critical_path_analysis.progressive_loading.progressive_loading_score.score }}/100</div>
                     <div class="metric-label">Loading Score</div>
@@ -1345,7 +1346,13 @@
                 <div class="metric-card info">
                     <div class="metric-value info">{{ data.domains }}</div>
                     <div class="metric-label">{{ category|title }} Domains</div>
-                    <div class="metric-sublabel">{{ data.requests }} requests • {{ data.total_time|round }} ms</div>
+                    <div class="metric-sublabel">
+                        {% if data.blocking_requests is defined %}
+                            {{ data.blocking_requests }} blocking requests
+                            <span class="separator">|</span>
+                        {% endif %}
+                        {{ data.requests }} total requests • {{ data.total_time|round }} ms
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -1480,12 +1487,12 @@
                             <td>
                                 {{ asset.size_kb|round(1) }} KB
                                 <div class="progress-bar">
-                                    <div class="progress-fill" style="width: {{ (asset.size_kb / max_asset_size * 100)|round }}%;"></div>
+                                    <div class="progress-fill" style="width: {{ (asset.size_kb / max_asset_size * 100) }}%;"></div>
                                 </div>
                             </td>
                             <td>
-                                {% if asset.type %}
-                                <span class="status-badge status-2xx">{{ asset.type|title }}</span>
+                                {% if asset.resource_type %}
+                                <span class="status-badge status-2xx">{{ asset.resource_type|title }}</span>
                                 {% else %}
                                     {% if '.js' in asset.url %}
                                     <span class="status-badge status-3xx">Script</span>
@@ -1556,7 +1563,7 @@
                                 {% if request.time_ms %}
                                     {{ request.time_ms|round }} ms
                                     <div class="progress-bar">
-                                        <div class="progress-fill" style="width: {{ (request.time_ms / max_request_time * 100)|round }}%;"></div>
+                                        <div class="progress-fill" style="width: {{ (request.time_ms / max_request_time * 100) }}%;"></div>
                                     </div>
                                 {% else %}
                                     N/A
@@ -1758,6 +1765,7 @@
             </div>
         </div>
         {% endif %}
+
 
         <!-- Performance Recommendations Summary -->
         <div class="section fade-in">

@@ -1,0 +1,401 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HAR Analyzer Agent Summary Schema",
+  "description": "Schema for the agent_summary.json file produced by the HAR Analyzer",
+  "type": "object",
+  "required": ["metadata", "performance_summary", "critical_issues", "resource_breakdown"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "description": "Metadata about the analysis process",
+      "required": ["har_name", "analysis_timestamp", "schema_version"],
+      "properties": {
+        "har_name": { 
+          "type": "string",
+          "description": "Name of the HAR file analyzed"
+        },
+        "analysis_timestamp": { 
+          "type": "string", 
+          "format": "date-time",
+          "description": "ISO timestamp when the analysis was performed"
+        },
+        "schema_version": { 
+          "type": "string",
+          "description": "Version of the agent summary schema used"
+        }
+      }
+    },
+    "performance_summary": {
+      "type": "object",
+      "description": "Overall performance metrics from the HAR file",
+      "required": [
+        "total_requests", 
+        "dom_ready_time_ms", 
+        "page_load_time_ms", 
+        "dom_ready_time_formatted",
+        "page_load_time_formatted",
+        "performance_grade"
+      ],
+      "properties": {
+        "total_requests": { 
+          "type": "integer",
+          "description": "Total number of network requests"
+        },
+        "dom_ready_time_ms": { 
+          "type": ["integer", "null"],
+          "description": "Time to DOM ready in milliseconds"
+        },
+        "page_load_time_ms": { 
+          "type": ["integer", "null"],
+          "description": "Full page load time in milliseconds"
+        },
+        "dom_ready_time_formatted": { 
+          "type": "string",
+          "description": "Human-readable DOM ready time with units"
+        },
+        "page_load_time_formatted": { 
+          "type": "string",
+          "description": "Human-readable page load time with units"
+        },
+        "performance_grade": { 
+          "type": "string",
+          "enum": ["EXCELLENT", "GOOD", "FAIR", "POOR", "CRITICAL", "UNKNOWN"],
+          "description": "Overall performance grade based on load time metrics"
+        }
+      }
+    },
+    "critical_issues": {
+      "type": "object",
+      "description": "Summary of critical performance issues",
+      "required": [
+        "very_slow_requests",
+        "slow_requests", 
+        "failed_requests_count",
+        "excessive_requests"
+      ],
+      "properties": {
+        "very_slow_requests": { 
+          "type": "integer",
+          "description": "Number of requests taking over 1000ms"
+        },
+        "slow_requests": { 
+          "type": "integer",
+          "description": "Number of requests taking between 500-1000ms"
+        },
+        "failed_requests_count": { 
+          "type": "integer",
+          "description": "Number of requests with 4xx or 5xx status codes"
+        },
+        "excessive_requests": { 
+          "type": "boolean",
+          "description": "Whether the total number of requests is excessive (>100)"
+        }
+      }
+    },
+    "performance_classes": {
+      "type": "object",
+      "description": "CSS classes for styling metrics in the UI",
+      "required": [
+        "load_time_class",
+        "dom_time_class",
+        "requests_class",
+        "failed_class"
+      ],
+      "properties": {
+        "load_time_class": { 
+          "type": "string",
+          "enum": ["success", "warning", "danger", "info"],
+          "description": "CSS class for load time metrics"
+        },
+        "dom_time_class": { 
+          "type": "string",
+          "enum": ["success", "warning", "danger", "info"],
+          "description": "CSS class for DOM ready time metrics"
+        },
+        "requests_class": { 
+          "type": "string",
+          "enum": ["success", "warning", "danger", "info"],
+          "description": "CSS class for total requests metrics"
+        },
+        "failed_class": { 
+          "type": "string",
+          "enum": ["success", "warning", "danger", "info"],
+          "description": "CSS class for failed requests metrics"
+        }
+      }
+    },
+    "resource_breakdown": {
+      "type": "object",
+      "description": "Breakdown of resources by type",
+      "additionalProperties": { 
+        "type": "integer",
+        "description": "Count of resources of a particular type"
+      }
+    },
+    "largest_assets": {
+      "type": "array",
+      "description": "List of largest assets by size",
+      "items": {
+        "type": "object",
+        "required": ["url", "size_bytes", "size_kb", "resource_type", "status_code"],
+        "properties": {
+          "url": { 
+            "type": "string",
+            "description": "Full URL of the asset" 
+          },
+          "url_truncated": { 
+            "type": "string",
+            "description": "Truncated URL for display purposes"
+          },
+          "size_bytes": { 
+            "type": "integer",
+            "description": "Size in bytes"
+          },
+          "size_kb": { 
+            "type": "number",
+            "description": "Size in kilobytes"
+          },
+          "time_ms": { 
+            "type": "integer",
+            "description": "Time to load in milliseconds"
+          },
+          "resource_type": { 
+            "type": "string",
+            "description": "Type of resource (script, image, etc.)"
+          },
+          "status_code": { 
+            "type": "integer",
+            "description": "HTTP status code"
+          }
+        }
+      }
+    },
+    "slowest_requests": {
+      "type": "array",
+      "description": "List of slowest requests by time",
+      "items": {
+        "type": "object",
+        "required": ["url", "time_ms", "resource_type", "status_code"],
+        "properties": {
+          "url": { 
+            "type": "string",
+            "description": "Full URL of the request"
+          },
+          "url_truncated": { 
+            "type": "string",
+            "description": "Truncated URL for display purposes"
+          },
+          "size_bytes": { 
+            "type": "integer",
+            "description": "Size in bytes"
+          },
+          "size_kb": { 
+            "type": "number",
+            "description": "Size in kilobytes"
+          },
+          "time_ms": { 
+            "type": "integer",
+            "description": "Time to load in milliseconds"
+          },
+          "resource_type": { 
+            "type": "string",
+            "description": "Type of resource (script, image, etc.)"
+          },
+          "status_code": { 
+            "type": "integer",
+            "description": "HTTP status code"
+          }
+        }
+      }
+    },
+    "failed_requests": {
+      "type": "array",
+      "description": "List of failed requests (4xx or 5xx status codes)",
+      "items": {
+        "type": "object",
+        "required": ["url", "status"],
+        "properties": {
+          "url": { 
+            "type": "string",
+            "description": "Full URL of the request"
+          },
+          "status": { 
+            "type": "integer",
+            "description": "HTTP status code"
+          }
+        }
+      }
+    },
+    "compression_analysis": {
+      "type": "object",
+      "description": "Analysis of compression usage and opportunities",
+      "properties": {
+        "details": {
+          "type": "object",
+          "properties": {
+            "uncompressed_resources": { 
+              "type": "array",
+              "description": "List of resources that could be compressed"
+            },
+            "total_potential_savings_kb": { 
+              "type": "number",
+              "description": "Potential size savings in KB from compression"
+            },
+            "total_compressible_kb": { 
+              "type": "number",
+              "description": "Total size of compressible resources in KB"
+            },
+            "compression_opportunity_count": { 
+              "type": "integer",
+              "description": "Number of resources that could be compressed"
+            }
+          }
+        }
+      }
+    },
+    "caching_analysis": {
+      "type": "object",
+      "description": "Analysis of caching usage and opportunities",
+      "properties": {
+        "details": {
+          "type": "object",
+          "properties": {
+            "no_cache_resources": { 
+              "type": "array",
+              "description": "Resources with no caching headers"
+            },
+            "short_cache_resources": { 
+              "type": "array",
+              "description": "Resources with short cache times"
+            },
+            "well_cached_count": { 
+              "type": "integer",
+              "description": "Count of well-cached resources"
+            },
+            "cache_optimization_count": { 
+              "type": "integer",
+              "description": "Count of resources needing cache optimization"
+            },
+            "total_potential_savings_kb": { 
+              "type": "number",
+              "description": "Potential savings from proper caching in KB"
+            }
+          }
+        }
+      }
+    },
+    "dns_connection_analysis": {
+      "type": "object",
+      "description": "Analysis of DNS and connection performance",
+      "properties": {
+        "details": {
+          "type": "object",
+          "properties": {
+            "domains": { 
+              "type": "array",
+              "description": "Performance metrics per domain",
+              "items": {
+                "type": "object",
+                "required": [
+                  "domain",
+                  "requests",
+                  "avg_dns_time_ms",
+                  "avg_connect_time_ms",
+                  "avg_wait_time_ms"
+                ],
+                "properties": {
+                  "domain": {
+                    "type": "string",
+                    "description": "Domain name"
+                  },
+                  "requests": {
+                    "type": "integer",
+                    "description": "Number of requests to this domain"
+                  },
+                  "avg_dns_time_ms": {
+                    "type": "number",
+                    "description": "Average DNS lookup time in milliseconds"
+                  },
+                  "avg_connect_time_ms": {
+                    "type": "number",
+                    "description": "Average connection time in milliseconds"
+                  },
+                  "avg_wait_time_ms": {
+                    "type": "number",
+                    "description": "Average waiting time in milliseconds"
+                  }
+                }
+              }
+            },
+            "slow_dns_resolutions": { 
+              "type": "array",
+              "description": "List of slow DNS resolutions"
+            },
+            "slow_ssl_handshakes": { 
+              "type": "array",
+              "description": "List of slow SSL handshakes"
+            },
+            "avg_dns_time": { 
+              "type": ["number", "string"],
+              "description": "Average DNS resolution time or 'N/A'"
+            },
+            "avg_ssl_time": { 
+              "type": ["number", "string"],
+              "description": "Average SSL handshake time or 'N/A'"
+            },
+            "connection_reuse_percentage": { 
+              "type": "number",
+              "description": "Percentage of connections reused"
+            },
+            "reused_connections": { 
+              "type": "integer",
+              "description": "Count of reused connections"
+            },
+            "new_connections": { 
+              "type": "integer",
+              "description": "Count of new connections"
+            },
+            "total_connection_requests": { 
+              "type": "integer",
+              "description": "Total connection requests"
+            }
+          }
+        }
+      }
+    },
+    "total_size_mb": { 
+      "type": "number",
+      "description": "Total size of all resources in MB"
+    },
+    "avg_response_time": { 
+      "type": "number",
+      "description": "Average response time in milliseconds"
+    },
+    "third_party_domains": { 
+      "type": "integer",
+      "description": "Count of third-party domains"
+    },
+    "recommendations": {
+      "type": "array",
+      "description": "List of performance improvement recommendations",
+      "items": { 
+        "type": "string",
+        "description": "Individual recommendation"
+      }
+    },
+    "chart_data": {
+      "type": "object",
+      "description": "Pre-calculated data for charts and visualizations",
+      "properties": {
+        "resource_breakdown": {
+          "type": "array",
+          "description": "Data for resource breakdown pie chart"
+        }
+      }
+    },
+    "core_web_vitals": {
+      "type": "object",
+      "description": "Core Web Vitals metrics and analysis"
+    }
+  }
+}
