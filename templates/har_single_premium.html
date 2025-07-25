@@ -979,7 +979,7 @@
             <!-- Blocking Resources Table -->
             <div class="expandable-section">
                 <div class="expand-toggle" onclick="toggleExpand('blocking-resources')">
-                    <h4>⚠️ Render-Blocking Resources</h4>
+                    <h4>⚠️ High-Impact Render-Blocking Resources (>500ms)</h4>
                     <span class="expand-icon">▼</span>
                 </div>
                 <div class="expand-content" id="blocking-resources">
@@ -997,6 +997,7 @@
                             </thead>
                             <tbody>
                                 {% for resource in critical_path_analysis.blocking_resources %}
+                                {% if resource.found_in_har and resource.time > 500 %}
                                 <tr>
                                     <td class="url-cell" title="{{ resource.url }}">
                                         {{ resource.url|truncate(50) }}
@@ -1045,6 +1046,7 @@
                                         {% endif %}
                                     </td>
                                 </tr>
+                                {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -1277,9 +1279,9 @@
             <div class="section-header">
                 <div>
                     <h2 class="section-title">🎯 High-Impact Optimization Targets</h2>
-                    <p class="section-subtitle">Resources with the highest performance optimization potential</p>
+                    <p class="section-subtitle">Resources with high impact scores (≥40) and priority optimization potential</p>
                 </div>
-                <div class="section-badge">{{ critical_path_analysis.impact_scored_resources|length }} Resources</div>
+                <div class="section-badge">Priority Resources</div>
             </div>
 
             <div class="table-container">
@@ -1296,6 +1298,7 @@
                     </thead>
                     <tbody>
                         {% for resource in critical_path_analysis.impact_scored_resources %}
+                        {% if resource.impact_score >= 40 and (resource.priority == 'high' or resource.priority == 'medium') %}
                         <tr>
                             <td>
                                 <a href="{{ resource.url }}" target="_blank">
@@ -1322,6 +1325,7 @@
                                 </span>
                             </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -1400,7 +1404,7 @@
             <div class="section-header">
                 <div>
                     <h2 class="section-title">🌐 Network Performance</h2>
-                    <p class="section-subtitle">DNS resolution and SSL handshake analysis</p>
+                    <p class="section-subtitle">High-impact DNS resolution and SSL handshake issues (>100ms DNS, >300ms SSL, >1s total)</p>
                 </div>
                 <div class="section-badge">Network Analysis</div>
             </div>
@@ -1428,32 +1432,74 @@
                 </div>
             </div>
 
-            <!-- Domain Performance Table -->
-            <div class="table-container">
-                <table class="enhanced-table">
-                    <thead>
-                        <tr>
-                            <th>Domain</th>
-                            <th>Requests</th>
-                            <th>DNS Time</th>
-                            <th>SSL Time</th>
-                            <th>Total Time</th>
-                            <th>Category</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for domain in domain_performance %}
-                        <tr>
-                            <td class="url-cell">{{ domain.name }}</td>
-                            <td>{{ domain.requests }}</td>
-                            <td>{{ domain.dns_time }}ms</td>
-                            <td>{{ domain.ssl_time }}ms</td>
-                            <td>{{ domain.total_time }}ms</td>
-                            <td><span class="status-badge status-2xx">{{ domain.category|title }}</span></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <!-- High-Impact Domain Performance Table -->
+            <div class="expandable-section">
+                <div class="expand-toggle" onclick="toggleExpand('high-impact-domains')">
+                    <h4>⚠️ High-Impact Network Performance Issues</h4>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="expand-content" id="high-impact-domains">
+                    <div class="table-container">
+                        <table class="enhanced-table">
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Requests</th>
+                                    <th>DNS Time</th>
+                                    <th>SSL Time</th>
+                                    <th>Total Time</th>
+                                    <th>Impact Level</th>
+                                    <th>Category</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for domain in domain_performance %}
+                                {% if (domain.dns_time and domain.dns_time|int > 100) or (domain.ssl_time and domain.ssl_time|int > 300) or (domain.total_time and domain.total_time|int > 1000) %}
+                                <tr>
+                                    <td class="url-cell">{{ domain.name }}</td>
+                                    <td>{{ domain.requests }}</td>
+                                    <td>
+                                        {% if domain.dns_time and domain.dns_time|int > 150 %}
+                                        <span class="status-badge status-4xx">{{ domain.dns_time }}ms</span>
+                                        {% elif domain.dns_time and domain.dns_time|int > 100 %}
+                                        <span class="status-badge status-3xx">{{ domain.dns_time }}ms</span>
+                                        {% else %}
+                                        {{ domain.dns_time }}ms
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if domain.ssl_time and domain.ssl_time|int > 500 %}
+                                        <span class="status-badge status-4xx">{{ domain.ssl_time }}ms</span>
+                                        {% elif domain.ssl_time and domain.ssl_time|int > 300 %}
+                                        <span class="status-badge status-3xx">{{ domain.ssl_time }}ms</span>
+                                        {% else %}
+                                        {{ domain.ssl_time }}ms
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if domain.total_time and domain.total_time|int > 2000 %}
+                                        <span class="status-badge status-4xx">{{ domain.total_time }}ms</span>
+                                        {% elif domain.total_time and domain.total_time|int > 1000 %}
+                                        <span class="status-badge status-3xx">{{ domain.total_time }}ms</span>
+                                        {% else %}
+                                        {{ domain.total_time }}ms
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if (domain.dns_time and domain.dns_time|int > 150) or (domain.ssl_time and domain.ssl_time|int > 500) or (domain.total_time and domain.total_time|int > 2000) %}
+                                        <span class="status-badge status-4xx">Critical</span>
+                                        {% else %}
+                                        <span class="status-badge status-3xx">High</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="status-badge status-2xx">{{ domain.category|title }}</span></td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
         {% endif %}
